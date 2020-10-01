@@ -12,6 +12,9 @@ def create_weights(layers):
 def relu(x):
     return x if x > 0 else 0
 
+def d_relu(x):
+    return np.greater(x, 0).astype(int)
+
 def softmax(x):
     e_x = np.exp(x - np.max(x))
     return e_x / e_x.sum(axis=0)
@@ -20,10 +23,7 @@ def cross_entropy(x, y):
     a = 10 ** -8
     return -np.mean(y * np.log(x + (1 * a)))
 
-def feedforward(weights, inputs):
-    outputs = []
-    for i in inputs:
-        pass
+
 
 layers = [2, 3, 4, 2]
 
