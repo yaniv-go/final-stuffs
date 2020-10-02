@@ -24,6 +24,8 @@ def create_weights(layers):
         weights.append(np.random.rand(x, y))
     return weights
 
+def 
+
 x, y = sk.make_classification(n_samples=1000, n_features=3, n_informative=3,  n_redundant=0, n_repeated=0
                               , n_classes=2, n_clusters_per_class=2, flip_y=0.01, class_sep=2)
 
