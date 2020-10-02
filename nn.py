@@ -1,16 +1,7 @@
 import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
+#import pandas as pd
+#import matplotlib.pyplot as plt
 import sklearn.datasets as sk
-
-def create_layer(input, output):
-    return np.random.rand(input, output)
-
-def create_weights(layers):
-    weights = []
-    for x,y in zip(layers,layers[1:]):
-        weights.append([create_layer(x, y), np.random.rand(y)])
-    return weights
 
 def relu(x):
     return x if x > 0 else 0
@@ -26,9 +17,20 @@ def cross_entropy(x, y):
     a = 10 ** -8
     return -np.mean(y * np.log(x + (1 * a)))
 
-x, y = sk.make_classification(n_samples=1000, n_features=6, n_informative=6,  n_redundant=0, n_repeated=0
+def create_weights(layers):
+    if not isinstance(layers, list): return
+    weights = []
+    for x, y in zip(layers, layers[1:]):
+        weights.append(np.random.rand(x, y))
+    return weights
+
+x, y = sk.make_classification(n_samples=1000, n_features=3, n_informative=3,  n_redundant=0, n_repeated=0
                               , n_classes=2, n_clusters_per_class=2, flip_y=0.01, class_sep=2)
-print (x)
-print (y)
-plt.scatter(x[:, 0], x[:, 1], marker='o', c=y, edgecolor='k')
-plt.show()
+
+layers = [2, 3, 2]
+weights = create_weights(layers)
+x = np.array([[1,1], [2,2]])
+o = [x]
+for w in weights:
+    o.append(o[-1] @ w)
+print (o[-1])
