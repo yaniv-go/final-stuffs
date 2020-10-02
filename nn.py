@@ -27,6 +27,6 @@ for c, x in enumerate(l):
 
 o = [X[0]]
 for l in layers:
-    o.append(o[-1] @ l)
+    o.append(l @ o[-1])
     o[-1] = relu(o[-1]) * o[-1]
 print (o)
