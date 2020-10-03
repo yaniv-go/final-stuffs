@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 import sklearn.datasets as sk
 
 def relu(x):
@@ -19,6 +19,10 @@ def cross_entropy(x, y):
     a = 10 ** -8
     n = x.shape[0]
     return -np.sum(y * np.log(x + (1 * a))) / n
+
+def get_one_hot(targets, nb_classes):
+    res = np.eye(nb_classes)[np.array(targets).reshape(-1)]
+    return res.reshape(list(targets.shape)+[nb_classes])
 
 X, y = sk.make_classification(n_samples=1000, n_features=2, n_informative=2,  n_redundant=0, n_repeated=0
                               , n_classes=2, n_clusters_per_class=2, flip_y=0.01, class_sep=3)
@@ -42,6 +46,11 @@ for h in h_layers:
 o.append(o[-1] @ o_layer)
 o[-1] = softmax(o[-1])
 
-
-plt.scatter(X[:, 0], X[:, 1], marker='o', c=y, edgecolor='k')
-plt.show()
+# backwards
+y = get_one_hot(y, 2)
+error = cross_entropy(o[-1], y[:5])
+de = [i - j for i, j in zip(y[:5], o[-1])]
+dw = o[-1].T @ de
+dh = de @ o_layer.T
+print (dh)
+#plt.scatter(X[:, 0], X[:, 1], marker='o', c=y, edgecolor='k') ; plt.show()
