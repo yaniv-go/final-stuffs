@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import sklearn.datasets as sk
 
 def relu(x):
@@ -26,6 +26,7 @@ X, y = sk.make_classification(n_samples=1000, n_features=2, n_informative=2,  n_
 # creating network
 h_layers = []
 l = [2, 4, 4, 2] 
+
 l = [(l[x], l[x+1]) for x in range(len(l) - 1)]
 
 for c, x in enumerate(l[:-1]):    
