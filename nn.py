@@ -15,12 +15,14 @@ def create_weights(layers):
 def relu(x):
     return np.greater(x, 0).astype(int)
 
-def d_relu(x):
-    return np.greater(x, 0).astype(int)
-
 def softmax(x):
-    e_x = np.exp(x - np.max(x))
-    return e_x / e_x.sum(axis=0)
+    assert len(z.shape) == 2
+    s = np.max(z, axis=1)
+    s = s[:, np.newaxis] # necessary step to do broadcasting
+    e_x = np.exp(z - s)
+    div = np.sum(e_x, axis=1)
+    div = div[:, np.newaxis] # dito
+    return e_x / div
 
 def cross_entropy(x, y):
     a = 10 ** -8
