@@ -21,11 +21,16 @@ def cross_entropy(x, y):
     return -np.sum(y * np.log(x + (1 * a))) / n
 
 
-X, y = sk.make_classification(n_samples=1000, n_features=3, n_informative=3,  n_redundant=0, n_repeated=0
+X, y = sk.make_classification(n_samples=1000, n_features=2, n_informative=2,  n_redundant=0, n_repeated=0
                               , n_classes=2, n_clusters_per_class=2, flip_y=0.01, class_sep=3)
 
+plt.scatter(X[:, 0], X[:, 1], marker='o', c=y, edgecolor='k')
+plt.show()
+
+# creating network
 h_layers = []
-l = [3, 3, 4, 2] 
+l = [2, 4, 4, 2] 
+
 l = [(l[x], l[x+1]) for x in range(len(l) - 1)]
 
 for c, x in enumerate(l[:-1]):    
@@ -38,4 +43,10 @@ for h in h_layers:
     o.append(o[-1] @ h)
     o[-1] = relu(o[-1]) * o[-1]
 o.append(o[-1] @ o_layer)
-print (softmax(np.array([[1, 2, 3], [3, 5, 6]])))
+
+for x in o[-1]:
+    print (x, '\n')
+o[-1] = softmax(o[-1])
+for x in o[-1]:
+    print (x, '\n')
+
