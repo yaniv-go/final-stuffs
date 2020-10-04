@@ -52,16 +52,19 @@ e = 0.5
 y = get_one_hot(y, 2)
 error = cross_entropy(o[-1], y[:5])
 de = o[-1] - y[:5]
-dw = np.zeros(shape=(4, 2))
+dw = o[-2].T @ de
 dh = de @ o_layer.T
-print (dh)
 o_layer = np.subtract(o_layer, dw * e)
-for h, i in zip(h_layers, range(-2, -1 * len(h_layers), -1)):
-    de = dh * relu(dh)
-    dw = o[i].T @ de
-    dh = de @ h.T
-    h = h - dw * e
-    print (h)
-print ('now again\n\n', dh)
 
+de = dh * relu(dh)
+dw = o[1].T @ de
+dh = de @ h_layers[1].T
+h_layers[1] = np.subtract(h_layers[1], dw * e)
+
+de = dh * relu(dh)
+dw = o[0].T @ de 
+dh = de @ h_layers[0].T
+h_layers[0] = np.subtract(h_layers[0], dw * e)
+
+print ('i did it')
 #plt.scatter(X[:, 0], X[:, 1], marker='o', c=y, edgecolor='k') ; plt.show()
