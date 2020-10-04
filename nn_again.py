@@ -41,9 +41,22 @@ bias = [np.zeros(l[1]) + 0.01 for l in layers]
 for l in layers:
     hidden.append(np.random.rand(l[0], l[1]))
 
-for n in range(1):
-    o = [X[np.random.choice(X.shape[0], 1)]]
+j = []
+
+for n in range(0):
+    r = np.random.choice(X.shape[0], 1)
+    o = [X[r]]
+    
+    #forwards
     for h in hidden[:-1]:
         o.append(o[-1] @ h)    
         o[-1] = o[-1] * relu(o[-1])
-        
+    o.append(o[-1] @ hidden[-1])
+    o[-1] = softmax(o[-1])
+
+    #error
+    j.append(cross_entropy(o[-1], get_one_hot(y[r], 2)))
+    de = o[-1] - get_one_hot(y[r], 2)
+    for h in hidden[::-1]:
+        dw = o[hidden.index(h)].T @ de
+        db = de
