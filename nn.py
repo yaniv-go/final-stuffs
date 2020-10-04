@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import sklearn.datasets as sk
 
 def relu(x):
@@ -40,6 +40,7 @@ o_layer = np.random.rand(l[-1][0], l[-1][1])
 
 # forwards
 o = [X[:5]]
+
 for h in h_layers:
     o.append(o[-1] @ h)
     o[-1] = relu(o[-1]) * o[-1]
@@ -47,10 +48,20 @@ o.append(o[-1] @ o_layer)
 o[-1] = softmax(o[-1])
 
 # backwards
+e = 0.5
 y = get_one_hot(y, 2)
 error = cross_entropy(o[-1], y[:5])
-de = [i - j for i, j in zip(y[:5], o[-1])]
-dw = o[-1].T @ de
+de = o[-1] - y[:5]
+dw = np.zeros(shape=(4, 2))
 dh = de @ o_layer.T
 print (dh)
+o_layer = np.subtract(o_layer, dw * e)
+for h, i in zip(h_layers, range(-2, -1 * len(h_layers), -1)):
+    de = dh * relu(dh)
+    dw = o[i].T @ de
+    dh = de @ h.T
+    h = h - dw * e
+    print (h)
+print ('now again\n\n', dh)
+
 #plt.scatter(X[:, 0], X[:, 1], marker='o', c=y, edgecolor='k') ; plt.show()
