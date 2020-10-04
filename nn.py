@@ -38,9 +38,28 @@ class MLP:
             o.append(o[l] @ self.h[l] + self.b[l])
             o[l + 1] = self.f(o[l + 1]) 
         o.append(o[self.d - 1] @ self.h[self.d - 1] + self.b[self.d - 1])
-        o[self.d] = self.f_o(np.array([o[self.d]]))
+        o[self.d] = self.f_o(o[self.d])
 
         return o
+    
+    def gradient_descent(self, niter, x, y, e, wd=0.1):
+        j = []
+        for n in range(niter):
+            p = np.random.choice(x)
+            x_T, y_T = x[p], self.get_one_hot(y[p], x.shape[1])
+
+            o = self.feed_forward(x_T)
+            j.append(self.cost(o[self.d], y_T) + self.weight_decay(self.h, wd))
+
+            de = o[self.d] - y_T
+            for l in range(self.d-1, -1, -1):
+                dw = o[l].T @ de
+                db = de.flatten()
+                de = de @ self.h[l].T
+                self.h[l] -= e * (dw + wd * self.h[l])
+                self.b[l] -= db * e
+            
+        return j
 
     def relu(self, x):
         return np.greater(x, 0).astype(int) * x
@@ -56,7 +75,7 @@ class MLP:
         return y * (1 - y)
 
     def softmax(self, z):
-        assert len(z.shape) == 2
+        if not len(z.shape) == 2: z = np.array([z])
         s = np.array([np.max(z,axis=1)]).T
         e_z = np.exp(z - s)
 
@@ -84,4 +103,6 @@ def l_tuple(layers, i):
         layers.pop(i) ; return layers
 
 nn = MLP([2,3,2], 'r', 'so', 'l2', 'co')
-print (nn.feed_forward([1, 2]))
+x = np.array([[1, 0],[0, 1], [0, 1], [1, 0]])
+y = np.array([0, 1, 1, 0])
+print (nn.feed_forward(x))
