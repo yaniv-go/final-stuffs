@@ -30,8 +30,20 @@ def l_tuple(layers, i):
     except IndexError:
         layers.pop(i) ; return layers
 
-layers = [3, 3 ,4, 2] ; layers = l_tuple(layers, 0)
+
+X, y = sk.make_classification(n_samples=1000, n_features=3, n_informative=3,  n_redundant=0, n_repeated=0
+                              , n_classes=2, n_clusters_per_class=2, flip_y=0.01, class_sep=2)
+
+
+layers = [3, 4 ,4, 2] ; layers = l_tuple(layers, 0)
 hidden = []
-bias = [np.zeros(l[1]) + 0.1 for l in layers]
+bias = [np.zeros(l[1]) + 0.01 for l in layers]
 for l in layers:
     hidden.append(np.random.rand(l[0], l[1]))
+
+for n in range(1):
+    o = [X[np.random.choice(X.shape[0], 1)]]
+    for h in hidden[:-1]:
+        o.append(o[-1] @ h)    
+        o[-1] = o[-1] * relu(o[-1])
+        
