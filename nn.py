@@ -53,6 +53,7 @@ def poop():
     error = cross_entropy(o[-1], y[:5])
     de = o[-1] - y[:5]
     dw = o[-2].T @ de
+    print (dw)
     dh = de @ o_layer.T
     o_layer = np.subtract(o_layer, dw * e)
 
@@ -81,18 +82,39 @@ def initalize_weights(l, code=0):
         p = np.sqrt(6 / (m + n))
         return np.random.uniform(-p, p, [m, n])
 
-def sgd(n_iter, X, h, e0=0.5, k=32):
-    depth = len(hidden)
+def sgd(n_iter, X, h, b, e0=0.5, k=32, t=100):
+    depth = len(h) - 1
     data = pd.DataFrame()
+    et = e0 / 100
+    j = []
 
     for n in range(n_iter):
-        X_t = np.array([X[i] for i in np.random.choice(X.shape[0], (k))])
+        
+        # forwards
+        p = np.random.choice(X.shape[0], (k))
+        X_t = np.array([X[i] for i in p])
+        y_t = np.array([y[i] for i in p]) ; y_t = get_one_hot(y_t, h[depth].shape[1])
+
         o = [X_t]
         for l in range(depth):
-            o.append(o[l] @ h[l])
-            print (o[0].shape, '\n\n', o[1].shape)
-            break
-        break
+            o.append(o[l] @ h[l] + b[l])
+            o[l + 1] = o[l + 1] * relu(o[l + 1])
+        o.append(softmax(o[depth - 1] @ h[depth - 1]))
+        j.append(cross_entropy(o[depth], y_t))
+        
+        #backwards
+        e = n/t ; e = (1 - e) * e0 + e * et 
+        gradient = o[depth + 1] - y_t
+        dw = []
+        for l in range(depth, -1, -1):
+            dw.append(o[l].T @ gradient / k)
+            db.append(np.sum(gradient, axis=0) / k)
+            gradient = gradient @ h[l].T ; gradient = relu(gradient) * gradient
+
+
+
+
+        
 
 X, y = sk.make_classification(n_samples=1000, n_features=2, n_informative=2,  n_redundant=0, n_repeated=0
                               , n_classes=2, n_clusters_per_class=2, flip_y=0.01, class_sep=3)
@@ -100,8 +122,10 @@ X, y = sk.make_classification(n_samples=1000, n_features=2, n_informative=2,  n_
 layers = [2, 4, 4, 2]
 l_tuple(layers, 0)
 hidden = []
+bias = [np.zeros(l[1]) + 0.1 for l in layers]
 for l in layers:
     hidden.append(initalize_weights(l))
 
-print ()
-sgd(1000, X, hidden)
+
+#sgd(1000, X, hidden, b)
+print(list(range(2 - 1, -1, -1)))
