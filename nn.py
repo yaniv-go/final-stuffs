@@ -46,7 +46,7 @@ class MLP:
         j = []
         for n in range(niter):
             p = np.random.choice(x.shape[0])
-            x_T, y_T = x[p], self.get_one_hot(y[p], x.shape[1])
+            x_T, y_T = x[p], self.get_one_hot(y[p], self.h[self.d - 1].shape[1])
 
             o = self.feed_forward(x_T)
             j.append(self.cost(o[self.d], y_T) + self.weight_decay(self.h, wd))
@@ -61,6 +61,20 @@ class MLP:
                 self.b[l] -= db * e
             
         return j
+    
+    def sgd(self, niter, x, y, e0=0.01, t=500, et=0, wd=0.01, k=16):
+        if et == 0: et = e0 / 100
+        p = np.random.permutation(x.shape[0])
+        x, y = x[p], y[p]
+        j = []        
+
+        for n in range(niter):
+            pass
+            
+
+    def get_learning_rate(self, e0, et, t, n):
+        if (k := n / t) < 1: return e0 * (1 - k) + et * t
+        return et
 
     def relu(self, x):
         return np.greater(x, 0).astype(int) * x
@@ -103,8 +117,10 @@ def l_tuple(layers, i):
     except IndexError:
         layers.pop(i) ; return layers
 
-nn = MLP([2,3,2], 'r', 'so', 'l2', 'co')
-x = np.array([[1, 0],[0, 1], [0, 1], [1, 0]])
-y = np.array([0, 1, 1, 0])
-#print (nn.feed_forward(x[0]))
-print (nn.gradient_descent(5, x, y, 0.05))
+nn = MLP([20, 14, 13, 10, 8 ,2], 'r', 'so', 'l2', 'co')
+x, y = sk.make_classification(n_samples=100, n_features=20, n_informative=2, n_redundant=2
+                           , n_repeated=0, n_classes=2, n_clusters_per_class=2, flip_y=0.01, class_sep=1.0)
+
+#print (nn.sgd(1, x, y))
+
+print(np.random.permutation(x.shape[0]))
