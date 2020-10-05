@@ -45,14 +45,15 @@ class MLP:
     def gradient_descent(self, niter, x, y, e, wd=0.1):
         j = []
         for n in range(niter):
-            p = np.random.choice(x)
+            p = np.random.choice(x.shape[0])
             x_T, y_T = x[p], self.get_one_hot(y[p], x.shape[1])
 
             o = self.feed_forward(x_T)
             j.append(self.cost(o[self.d], y_T) + self.weight_decay(self.h, wd))
+            o = [np.array([i]) if len(i.shape) < 2 else i for i in o]
 
             de = o[self.d] - y_T
-            for l in range(self.d-1, -1, -1):
+            for l in range(self.d-1, -1, -1):                
                 dw = o[l].T @ de
                 db = de.flatten()
                 de = de @ self.h[l].T
@@ -105,4 +106,5 @@ def l_tuple(layers, i):
 nn = MLP([2,3,2], 'r', 'so', 'l2', 'co')
 x = np.array([[1, 0],[0, 1], [0, 1], [1, 0]])
 y = np.array([0, 1, 1, 0])
-print (nn.feed_forward(x))
+#print (nn.feed_forward(x[0]))
+print (nn.gradient_descent(5, x, y, 0.05))
