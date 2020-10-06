@@ -135,6 +135,24 @@ class MLP:
         
         return j
 
+    def rmsprop(self, niter, x, y, e=0.01, wd=0.01, k=32, m=0.5, d=0.9):
+        xb, yb = self.get_batches(x, y, k) 
+        r = 0
+        j = []
+
+        for n in range(niter):
+            p = np.random.choice(len(xb))
+            xt, yt = xb[p], yb[p]
+
+            o = self.feed_forward(xt)
+            j.append(self.cost(o[self.d], yt) + self.weight_decay(self.h, wd))
+
+            de = o[self.d] - yt
+            r = d*r + (1 - d) * de * de
+            de = (e / np.sqrt(1e-6 + r))
+        
+        return
+
     def get_batches(self, x, y, k):
         p = np.random.permutation(len(x))
         x, y = x[p], y[p]
@@ -188,10 +206,10 @@ def l_tuple(layers, i):
     except IndexError:
         layers.pop(i) ; return layers
 
-nn = MLP([20, 14, 13, 10, 8 ,2], 'r', 'so', 'l2', 'co')
+nn = MLP([20, 22, 20, 16, 10 ,2], 'r', 'so', 'l2', 'co')
 x, y = sk.make_classification(n_samples=100, n_features=20, n_informative=2, n_redundant=2
                            , n_repeated=0, n_classes=2, n_clusters_per_class=2, flip_y=0.01, class_sep=1.0)
 
-j = nn.sgd_with_nesterov_momentum(2000, x, y, e0=0.002, et=0.00005, m=0.9, t=300)
+j = nn.sgd_with_nesterov_momentum(2000, x, y, e0=1e-2, et=0, m=0.9, t=400, wd=0)
 plt.plot(range(len(j)), j)
 plt.show() 
