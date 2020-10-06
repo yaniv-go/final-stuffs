@@ -112,19 +112,23 @@ class MLP:
 
             e = self.get_learning_rate(e0, et, t, n)
             g = self.backprop(xt, yt, o, k, e)
-            for i in g.keys():
-                v[i] = m * v[i] + e * g[i]
             for l in range(self.d):
                 self.h[l] -= v['W%d' % l] + wd * e * self.h[l]
                 self.b[l] -= v['b%d' % l] 
+            for i in g.keys(): 
+                v[i] = m * v[i] + e * g[i]
 
         return j
 
     def sgd_with_nesterov_momentum(self, niter, x, y, e0=0.01, et=0, t=500, wd=0.01, k=32, m=0.5):
         if et == 0: et = e0 / 100
         xb, yb = self.get_batches(x, y, k) 
-        v = np.zeros((32, 2))
+        v = {}
         j = []
+
+        for i in range(self.d):
+            v['W%d' % i] = 0
+            v['b%d' % i] = 0
 
         for n in range(niter):
             p = np.random.choice(len(xb))
@@ -134,35 +138,69 @@ class MLP:
             j.append(self.cost(o[self.d], yt) + self.weight_decay(self.h, wd))
 
             e = self.get_learning_rate(e0, et, t, n)
-            de = o[self.d] - yt
-            v = m*v + e*de 
-            de += v
-            for l in range(self.d - 1, -1, -1):
-                dw = o[l].T @ de / k
-                db = np.sum(de, axis=0) / k
-                de = de @ self.h[l].T
-                self.h[l] -= e * (dw + wd * self.h[l])
-                self.b[l] -= db * e
+            g = self.backprop(xt, yt, o, k, e)
+            for i in g.keys(): 
+                v[i] = m * v[i] + e * g[i]      
+            for l in range(self.d):
+                self.h[l] -= v['W%d' % l] + e * (wd * self.h[l] + g['W%d' % l] )
+                self.b[l] -= v['b%d' % l] + e * g['b%d' % l]        
         
         return j
 
-    def rmsprop(self, niter, x, y, e=0.01, wd=0.01, k=32, m=0.5, d=0.9):
+    def rmsprop(self, niter, x, y, e=0.01, wd=0.01, k=32, d=0.9):
         xb, yb = self.get_batches(x, y, k) 
-        r = 0
+        r = {}
         j = []
+
+        for i in range(self.d):
+            r['W%d' % i] = 0
+            r['b%d' % i] = 0
 
         for n in range(niter):
             p = np.random.choice(len(xb))
             xt, yt = xb[p], yb[p]
 
             o = self.feed_forward(xt)
-            j.append(self.cost(o[self.d], yt) + self.weight_decay(self.h, wd))
+            j.append(self.cost(o[self.d], yt))
 
-            de = o[self.d] - yt
-            r = d*r + (1 - d) * de * de
-            de = (e / np.sqrt(1e-6 + r))
+            g = self.backprop(xt, yt, o, k, e)
+            for i in g.keys():
+                r[i] = d * r[i] + (1 - d) * g[i] * g[i]
+                g[i] = g[i] * (1 / np.sqrt(1e-6 + r[i])) * e
+            for l in range(self.d):
+                self.h[l] -= g['W%d' % l] + e * wd * self.h[l]
+                self.b[l] -= g['b%d' % l] 
+
+        return j
+
+    def rmsprop_with_momentum(self, niter, x, y, e=0.001, wd=0.01, k=32, m=0.9, d=0.9):
+        xb, yb = self.get_batches(x, y, k) 
+        r = {}
+        v = {}
+        j = []
+
+        for i in range(self.d):
+            r['W%d' % i] = 0
+            r['b%d' % i] = 0
+            v['W%d' % i] = 0
+            v['b%d' % i] = 0
         
-        return
+        for n in range(niter):
+            p = np.random.choice(len(xb))
+            xt, yt = xb[p], yb[p]
+
+            o = self.feed_forward(xt)
+            j.append(self.cost(o[self.d], yt))
+            g = self.backprop(xt, yt, o, k, e)
+            for i in g.keys():
+                r[i] = r[i] * d + (1 - d) * g[i] * g[i]
+                g[i] = g[i] * (e / np.sqrt(1e-6 + r[i]))
+                v[i] = v[i] * m + g[i]
+            for l in range(self.d):
+                self.h[l] -= v['W%d' % l] + e * (wd * self.h[l] + g['W%d' % l] )
+                self.b[l] -= v['b%d' % l] + e * g['b%d' % l]        
+            
+        return j
 
     def get_batches(self, x, y, k):
         p = np.random.permutation(len(x))
@@ -221,6 +259,6 @@ nn = MLP([20, 22, 20, 16, 10 ,2], 'r', 'so', 'l2', 'co')
 x, y = sk.make_classification(n_samples=100, n_features=20, n_informative=2, n_redundant=2
                            , n_repeated=0, n_classes=2, n_clusters_per_class=2, flip_y=0.01, class_sep=1.0)
 
-j = nn.sgd(1000, x, y, e0=1e-3, et=0, t=1000, wd=1e-20)
+j = nn.rmsprop_with_momentum(2000, x, y, d=0.9, e=0.001, wd=1e-2)
 plt.plot(range(len(j)), j)
 plt.show() 
