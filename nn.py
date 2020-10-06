@@ -99,7 +99,7 @@ class MLP:
             j.append(self.cost(o[self.d], yt) + self.weight_decay(self.h, wd))
 
             e = self.get_learning_rate(e0, et, t, n)
-            de = o[self.d] - yt ; v = m*v - de
+            de = o[self.d] - yt ; v = m*v - de * e
             for l in range(self.d - 1, -1, -1):
                 dw = o[l].T @ de / k
                 db = np.sum(de, axis=0) / k
@@ -109,11 +109,31 @@ class MLP:
 
         return j
 
-    def sgd_with_nesterov_momentum(self, niter, e0=0.01, et=0, t=500, wd=0.01, k=32, m=0.5):
-        if er == 0: et = e0 / 100
+    def sgd_with_nesterov_momentum(self, niter, x, y, e0=0.01, et=0, t=500, wd=0.01, k=32, m=0.5):
+        if et == 0: et = e0 / 100
         xb, yb = self.get_batches(x, y, k) 
         v = np.zeros((32, 2))
         j = []
+
+        for n in range(niter):
+            p = np.random.choice(len(xb))
+            xt, yt = xb[p], yb[p]
+
+            o = self.feed_forward(xt)
+            j.append(self.cost(o[self.d], yt) + self.weight_decay(self.h, wd))
+
+            e = self.get_learning_rate(e0, et, t, n)
+            de = o[self.d] - yt
+            v = m*v + e*de 
+            de += v
+            for l in range(self.d - 1, -1, -1):
+                dw = o[l].T @ de / k
+                db = np.sum(de, axis=0) / k
+                de = de @ self.h[l].T
+                self.h[l] -= e * (dw + wd * self.h[l])
+                self.b[l] -= db * e
+        
+        return j
 
     def get_batches(self, x, y, k):
         p = np.random.permutation(len(x))
@@ -172,6 +192,6 @@ nn = MLP([20, 14, 13, 10, 8 ,2], 'r', 'so', 'l2', 'co')
 x, y = sk.make_classification(n_samples=100, n_features=20, n_informative=2, n_redundant=2
                            , n_repeated=0, n_classes=2, n_clusters_per_class=2, flip_y=0.01, class_sep=1.0)
 
-j = nn.sgd_with_momentum(2000, x, y, e0=0.002, et=0.00004, m=0.9, t=300)
+j = nn.sgd_with_nesterov_momentum(2000, x, y, e0=0.002, et=0.00005, m=0.9, t=300)
 plt.plot(range(len(j)), j)
-plt.show()
+plt.show() 
