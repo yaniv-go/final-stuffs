@@ -66,8 +66,13 @@ class MLP:
         if et == 0: et = e0 / 100
         p = np.random.permutation(x.shape[0])
         x, y = x[p], y[p]
-        j = []        
+        y, p = [self.get_one_hot(k, self.h[self.d - 1].shape[1]) for k in y], len(x) // 16
 
+        xb, yb = np.append(x, x[:16 - (len(x) - p * 16)], axis=0), np.append(np.array(y), y[:16 - (len(y) - p * 16)], axis=0)
+        xb, yb = np.split(xb, p + 1), np.split(yb, p + 1)
+        
+        j = []        
+        
         for n in range(niter):
             pass
             
@@ -121,6 +126,4 @@ nn = MLP([20, 14, 13, 10, 8 ,2], 'r', 'so', 'l2', 'co')
 x, y = sk.make_classification(n_samples=100, n_features=20, n_informative=2, n_redundant=2
                            , n_repeated=0, n_classes=2, n_clusters_per_class=2, flip_y=0.01, class_sep=1.0)
 
-#print (nn.sgd(1, x, y))
-
-print(np.random.permutation(x.shape[0]))
+print (nn.sgd(1, x, y))
