@@ -42,6 +42,17 @@ class MLP:
 
         return o
     
+    def backprop(self, x, y, o, k, e):
+        g = {}
+        de = o[self.d] - y
+
+        for l in range(self.d - 1, -1, -1):
+            g['W%d' % l] = (o[l].T @ de) / k
+            g['b%d' % l] = np.sum(de, axis=0) / k
+            de = de @ self.h[l].T
+        
+        return g
+
     def gradient_descent(self, niter, x, y, e, wd=0.1):
         j = []
         for n in range(niter):
@@ -75,21 +86,22 @@ class MLP:
             j.append(self.cost(o[self.d], yt) + self.weight_decay(self.h, wd))
 
             e = self.get_learning_rate(e0, et, t, n)
-            de = o[self.d] - yt
-            for l in range(self.d - 1, -1, -1):
-                dw = o[l].T @ de / k
-                db = np.sum(de, axis=0) / k
-                de = de @ self.h[l].T
-                self.h[l] -= e * (dw + wd * self.h[l])
-                self.b[l] -= db * e
+            g = self.backprop(xt, yt, o, k, e)
+            for l in range(self.d):
+                self.h[l] -= e * (g['W%d' % l] + wd * self.h[l])
+                self.b[l] -= e * g['b%d' % l]
         
         return j
 
-    def sgd_with_momentum(self, niter, x, y, e0=0.01, et=0, t=500, wd=0.01, k=32, m=0.5):
+    def sgd_with_momentum(self, niter, x, y, e0=0.01, et=0, t=500, wd=0.01, k=32, m=0.9):
         if et == 0: et = e0 / 100
         xb, yb = self.get_batches(x, y, k)
-        v = np.zeros((32, 2))
+        v = {}
         j = []
+
+        for i in range(self.d):
+            v['W%d' % i] = 0
+            v['b%d' % i] = 0
 
         for n in range(niter):
             p = np.random.choice(len(xb))
@@ -99,13 +111,12 @@ class MLP:
             j.append(self.cost(o[self.d], yt) + self.weight_decay(self.h, wd))
 
             e = self.get_learning_rate(e0, et, t, n)
-            de = o[self.d] - yt ; v = m*v - de * e
-            for l in range(self.d - 1, -1, -1):
-                dw = o[l].T @ de / k
-                db = np.sum(de, axis=0) / k
-                de = de @ self.h[l].T
-                self.h[l] -= e * (dw + wd * self.h[l])
-                self.b[l] -= db * e
+            g = self.backprop(xt, yt, o, k, e)
+            for i in g.keys():
+                v[i] = m * v[i] + e * g[i]
+            for l in range(self.d):
+                self.h[l] -= v['W%d' % l] + wd * e * self.h[l]
+                self.b[l] -= v['b%d' % l] 
 
         return j
 
@@ -210,6 +221,6 @@ nn = MLP([20, 22, 20, 16, 10 ,2], 'r', 'so', 'l2', 'co')
 x, y = sk.make_classification(n_samples=100, n_features=20, n_informative=2, n_redundant=2
                            , n_repeated=0, n_classes=2, n_clusters_per_class=2, flip_y=0.01, class_sep=1.0)
 
-j = nn.sgd_with_nesterov_momentum(2000, x, y, e0=1e-2, et=0, m=0.9, t=400, wd=0)
+j = nn.sgd(1000, x, y, e0=1e-3, et=0, t=1000, wd=1e-20)
 plt.plot(range(len(j)), j)
 plt.show() 
