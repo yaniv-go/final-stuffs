@@ -62,15 +62,9 @@ class MLP:
             
         return j
     
-    def sgd(self, niter, x, y, e0=0.01, t=500, et=0, wd=0.01, k=16):
+    def sgd(self, niter, x, y, e0=0.01, t=500, et=0, wd=0.01, k=32):
         if et == 0: et = e0 / 100
-        p = np.random.permutation(x.shape[0])
-        x, y = x[p], y[p]
-        y, p = [self.get_one_hot(k, self.h[self.d - 1].shape[1]) for k in y], len(x) // 16
-
-        xb, yb = np.append(x, x[:16 - (len(x) - p * 16)], axis=0), np.append(np.array(y), y[:16 - (len(y) - p * 16)], axis=0)
-        xb, yb = np.split(xb, p + 1), np.split(yb, p + 1)
-        
+        xb, yb = self.get_batches(x, y, k)
         j = []        
         
         for n in range(niter):
@@ -91,6 +85,44 @@ class MLP:
         
         return j
 
+    def sgd_with_momentum(self, niter, x, y, e0=0.01, et=0, t=500, wd=0.01, k=32, m=0.5):
+        if et == 0: et = e0 / 100
+        xb, yb = self.get_batches(x, y, k)
+        v = np.zeros((32, 2))
+        j = []
+
+        for n in range(niter):
+            p = np.random.choice(len(xb))
+            xt, yt = xb[p], yb[p]
+
+            o = self.feed_forward(xt)
+            j.append(self.cost(o[self.d], yt) + self.weight_decay(self.h, wd))
+
+            e = self.get_learning_rate(e0, et, t, n)
+            de = o[self.d] - yt ; v = m*v - de
+            for l in range(self.d - 1, -1, -1):
+                dw = o[l].T @ de / k
+                db = np.sum(de, axis=0) / k
+                de = de @ self.h[l].T
+                self.h[l] -= e * (dw + wd * self.h[l])
+                self.b[l] -= db * e
+
+        return j
+
+    def sgd_with_nesterov_momentum(self, niter, e0=0.01, et=0, t=500, wd=0.01, k=32, m=0.5):
+        if er == 0: et = e0 / 100
+        xb, yb = self.get_batches(x, y, k) 
+        v = np.zeros((32, 2))
+        j = []
+
+    def get_batches(self, x, y, k):
+        p = np.random.permutation(len(x))
+        x, y = x[p], y[p]
+        y, p = [self.get_one_hot(i, self.h[self.d - 1].shape[1]) for i in y], len(x) // k
+
+        xb, yb = np.append(x, x[:k - (len(x) - p * k)], axis=0), np.append(np.array(y), y[:k - (len(y) - p * k)], axis=0)
+        return np.split(xb, p + 1), np.split(yb, p + 1)
+    
     def get_learning_rate(self, e0, et, t, n):
         if (k := n / t) < 1: return e0 * (1 - k) + et * t
         return et
@@ -140,6 +172,6 @@ nn = MLP([20, 14, 13, 10, 8 ,2], 'r', 'so', 'l2', 'co')
 x, y = sk.make_classification(n_samples=100, n_features=20, n_informative=2, n_redundant=2
                            , n_repeated=0, n_classes=2, n_clusters_per_class=2, flip_y=0.01, class_sep=1.0)
 
-j = nn.sgd(2000, x, y)
+j = nn.sgd_with_momentum(2000, x, y, e0=0.002, et=0.00004, m=0.9, t=300)
 plt.plot(range(len(j)), j)
 plt.show()
