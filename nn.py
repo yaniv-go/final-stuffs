@@ -74,8 +74,22 @@ class MLP:
         j = []        
         
         for n in range(niter):
-            pass
-            
+            p = np.random.choice(len(xb))
+            xt, yt = xb[p], yb[p]
+
+            o = self.feed_forward(xt)
+            j.append(self.cost(o[self.d], yt) + self.weight_decay(self.h, wd))
+
+            e = self.get_learning_rate(e0, et, t, n)
+            de = o[self.d] - yt
+            for l in range(self.d - 1, -1, -1):
+                dw = o[l].T @ de / k
+                db = np.sum(de, axis=0) / k
+                de = de @ self.h[l].T
+                self.h[l] -= e * (dw + wd * self.h[l])
+                self.b[l] -= db * e
+        
+        return j
 
     def get_learning_rate(self, e0, et, t, n):
         if (k := n / t) < 1: return e0 * (1 - k) + et * t
@@ -126,4 +140,6 @@ nn = MLP([20, 14, 13, 10, 8 ,2], 'r', 'so', 'l2', 'co')
 x, y = sk.make_classification(n_samples=100, n_features=20, n_informative=2, n_redundant=2
                            , n_repeated=0, n_classes=2, n_clusters_per_class=2, flip_y=0.01, class_sep=1.0)
 
-print (nn.sgd(1, x, y))
+j = nn.sgd(2000, x, y)
+plt.plot(range(len(j)), j)
+plt.show()
