@@ -46,7 +46,7 @@ class MLP:
     def get_batches(self, x, y, k):
         p = np.random.permutation(len(x))
         x, y = x[p], y[p]
-        y, p = [self.get_one_hot(i, self.h[self.d - 1].shape[1]) for i in y], len(x) // k
+        y, p = [self.get_one_hot(i, self.nn['W%d' % (self.d - 1)].shape[1]) for i in y], len(x) // k
 
         xb, yb = np.append(x, x[:k - (len(x) - p * k)], axis=0), np.append(np.array(y), y[:k - (len(y) - p * k)], axis=0)
         return np.split(xb, p + 1), np.split(yb, p + 1)
@@ -82,6 +82,22 @@ class MLP:
             h = [np.power(l, 2) for l in h]
             return np.sum([np.sum(l) for l in h]) * wd / 2
         else: return wd * h
+
+    def sgd(self, epochs, x, y, e0=0.01, t=500, et=0, wd=0.01, k=32):
+        if et == 0: et = e0 / 100
+        xb, yb = self.get_batches(x, y, k)
+        xv, yv = [], []
+        j = []
+
+        print ('length of xb, ', len(xb))
+        if ((p := len(xb) // 5) >= 1):
+            for i in range(p):
+                xv.append(xb.pop()) ; yv.append(yb.pop())      
+        else: xv = xb.pop() ; yv = yb.pop()
+        print (len(xv))
+
+        for ep in range(epochs):
+            pass
 
 class MLP1:
     def __init__(self, layers, a_foo, o_foo, reg, cost):
@@ -399,6 +415,4 @@ nn = MLP([20, 22, 20, 16, 10 ,2])
 x, y = sk.make_classification(n_samples=1000, n_features=20, n_informative=2, n_redundant=2
                            , n_repeated=0, n_classes=2, n_clusters_per_class=2, flip_y=0.01, class_sep=1.0)
 
-xt, yt = x[:5], [nn.get_one_hot(i, 2) for i in y[:5]]
-o = nn.forward(xt)
-print(nn.backprop(xt, yt, o, 5))
+nn.sgd(1, x, y)
