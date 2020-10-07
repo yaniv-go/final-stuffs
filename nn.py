@@ -17,6 +17,26 @@ class MLP:
             self.nn['b%d' % i] = np.zeros(layers[i][1])
             if batchnorm == 1: self.nn['BN%d' % i] = [1, 0]
 
+    def forward(self, x):
+        o = [x]
+        if self.BN == 0:
+            for l in range(self.d - 1):
+                o.append(self.relu(o[l] @ self.nn['W%d' % l] + self.nn['b%d' % l]))
+            o.append(self.softmax(o[self.d - 1] @ self.nn['W%d' % (self.d - 1)] + self.nn['b%d' % (self.d - 1)]))
+        
+        return o
+
+    def backprop(self, x, y, o, k):
+        g = {}
+        de = o[self.d] - y
+
+        for l in range(self.d - 1, -1, -1):
+            g['W%d' % l] = (o[l].T @ de) / k
+            g['b%d' % l] = np.sum(de, axis=0) / k
+            de = de @ g['W%d' % l].T
+        
+        return g
+
     def l_tuple(self, layers, i):
         try:
             layers[i] = (layers[i], layers[i + 1]) ; return(l_tuple(layers, i + 1))
@@ -48,7 +68,7 @@ class MLP:
 
         return e_z / np.array([np.sum(e_z, axis=1)]).T
 
-    def cross_entropy(self, x, y):
+    def cost(self, x, y):
         a = 10 ** -8
         n = x.shape[0]
         return -np.sum(y * np.log(x + (1 * a))) / n
@@ -378,4 +398,7 @@ def l_tuple(layers, i):
 nn = MLP([20, 22, 20, 16, 10 ,2])
 x, y = sk.make_classification(n_samples=1000, n_features=20, n_informative=2, n_redundant=2
                            , n_repeated=0, n_classes=2, n_clusters_per_class=2, flip_y=0.01, class_sep=1.0)
-print (nn.nn)
+
+xt, yt = x[:5], [nn.get_one_hot(i, 2) for i in y[:5]]
+o = nn.forward(xt)
+print(nn.backprop(xt, yt, o, 5))
