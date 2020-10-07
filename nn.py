@@ -9,10 +9,11 @@ class MLP:
         assert isinstance(layers, list)
         layers = self.l_tuple(layers, 0)
         self.nn = {}
+        self.BN = batchnorm
         self.d = len(layers)
 
         for i in range(self.d):
-            self.nn['W%d' % i] = np.random.rand(layers[i][0], layers[i][1]) * np.sqrt(2. / x)
+            self.nn['W%d' % i] = np.random.rand(layers[i][0], layers[i][1]) * np.sqrt(2. / layers[i][0])
             self.nn['b%d' % i] = np.zeros(layers[i][1])
             if batchnorm == 1: self.nn['BN%d' % i] = [1, 0]
 
