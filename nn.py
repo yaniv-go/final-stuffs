@@ -13,10 +13,8 @@ class MLP:
 
         for i in range(self.d):
             self.nn['W%d' % i] = np.random.rand(layers[i][0], layers[i][1]) * np.sqrt(2. / x)
-            self.nn['b%d' % i] = np.zeros(y)
-        if batchnorm == 1:
-            for x, y in layers:
-                self.nn['BN%d' % ]
+            self.nn['b%d' % i] = np.zeros(layers[i][1])
+            if batchnorm == 1: self.nn['BN%d' % i] = [1, 0]
 
     def l_tuple(self, layers, i):
         try:
@@ -24,7 +22,7 @@ class MLP:
         except IndexError:
             layers.pop(i) ; return layers
 
-     def get_batches(self, x, y, k):
+    def get_batches(self, x, y, k):
         p = np.random.permutation(len(x))
         x, y = x[p], y[p]
         y, p = [self.get_one_hot(i, self.h[self.d - 1].shape[1]) for i in y], len(x) // k
@@ -376,10 +374,7 @@ def l_tuple(layers, i):
     except IndexError:
         layers.pop(i) ; return layers
 
-nn = MLP1([20, 22, 20, 16, 10 ,2], 'r', 'so', 'l2', 'co')
+nn = MLP([20, 22, 20, 16, 10 ,2])
 x, y = sk.make_classification(n_samples=1000, n_features=20, n_informative=2, n_redundant=2
                            , n_repeated=0, n_classes=2, n_clusters_per_class=2, flip_y=0.01, class_sep=1.0)
-
-j = nn.adam_with_momentum(1000, x, y, e=1e-2, wd=0.01)
-plt.plot(range(len(j)), j)
-plt.show() 
+print (nn.nn)
