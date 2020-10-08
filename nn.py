@@ -98,10 +98,77 @@ class MLP:
                 for l in range(self.d):
                     self.nn['W%d' % l] -= e * (g['W%d' % l] + wd * self.nn['W%d' % l])
                     self.nn['b%d' % l] -= e * g['b%d' % l]
-            o = self.forward(xv)
-            jv.append(self.cost(o[self.d], yv))
+            for xt, yt in zip(xv, yv):
+                o = self.forward(xt)
+                jv.append(self.cost(o[self.d], yt))
 
         return j, jv
+    
+    def sgd_momentum(self, epochs, x, y, e0=0.01, t=100, et=0, wd=0.01, k=32, m=0.9):
+        if et == 0: et = e0 / 100
+        xb, yb = self.get_batches(x, y, k)
+        xv, yv = [], []
+        j, jv = [], []
+        v = {}
+        for i in self.nn.keys():
+            v[i] = 0
+
+        if ((p := len(xb) // 5) >= 1):
+            for i in range(p):
+                xv.append(xb.pop()) ; yv.append(yb.pop())
+        else: xv = xb.pop() ; yv = yb.pop()
+
+        for ep in range(epochs):
+            e = self.get_learning_rate(e0, et, t, ep)
+            for xt, yt in zip(xb, yb):
+                o = self.forward(xt)
+                j.append(self.cost(o[self.d], yt))
+
+                g = self.backprop(xt, yt, o, k)
+                for i in g.keys():
+                    v[i] = m * v[i] + e * g[i]
+                for l in range(self.d):
+                    self.nn['W%d' % l] -= ((e * wd * self.nn['W%d' % l]) + v['W%d' % l])
+                    self.nn['b%d' % l] -= v['b%d' % l]
+            for xt, yt in zip(xv, yv):
+                o = self.forward(xt)
+                jv.append(self.cost(o[self.d], yt))
+        return j, jv
+
+    def sgd_momentum_nesterov(self, epochs, x, y, e0=0.01, t=100, et=0, wd=0.01, k=32, m=0.9):
+        if et == 0: et = e0 / 100
+        xb, yb = self.get_batches(x, y, k)
+        xv, yv = [], []
+        j, jv = [], []
+        v = {}
+        for i in self.nn.keys():
+            v[i] = 0
+
+        if ((p := len(xb) // 5) >= 1):
+            for i in range(p):
+                xv.append(xb.pop()) ; yv.append(yb.pop())
+        else: xv = xb.pop() ; yv = yb.pop()
+
+        for ep in range(epochs):
+            e = self.get_learning_rate(e0, et, t, ep)
+            for xt, yt in zip(xb, yb):
+                nn_c = self.nn.copy()
+                for i in self.nn.keys():
+                    self.nn[i] -= m * v[i] 
+                o = self.forward(xt)
+                j.append(self.cost(o[self.d], yt))
+
+                g = self.backprop(xt, yt, o, k)
+                self.nn = nn_c
+                for i in g.keys():
+                    v[i] = m * v[i] + e * g[i]
+                for l in range(self.d):
+                    self.nn['W%d' % l] -= ((e * wd * self.nn['W%d' % l]) + v['W%d' % l])
+                    self.nn['b%d' % l] -= v['b%d' % l]
+            for xt, yt in zip(xv, yv):
+                o = self.forward(xt)
+                jv.append(self.cost(o[self.d], yt))
+        return j, jv       
 
 class MLP1:
     def __init__(self, layers, a_foo, o_foo, reg, cost):
@@ -419,7 +486,8 @@ nn = MLP([20, 22, 20, 16, 10 ,2])
 x, y = sk.make_classification(n_samples=1000, n_features=20, n_informative=2, n_redundant=2
                            , n_repeated=0, n_classes=2, n_clusters_per_class=2, flip_y=0.01, class_sep=1.0)
 
-j, jv = nn.sgd(20, x, y)
-plt.plot(range(len(j)), j)
-plt.plot(range(len(jv)), jv)
+j, jv = nn.sgd_momentum(100, x, y)
+fig, axs = plt.subplots(2)
+axs[0].plot(range(len(j)), j)
+axs[1].plot(range(len(jv)), jv)
 plt.show()
