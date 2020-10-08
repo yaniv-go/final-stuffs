@@ -76,18 +76,12 @@ class MLP:
     def get_one_hot(self, targets, nb_classes):
         res = np.eye(nb_classes)[np.array(targets).reshape(-1)]
         return res.reshape(list(targets.shape)+[nb_classes])
-    
-    def weight_decay(self, h, wd):
-        if self.h == h: 
-            h = [np.power(l, 2) for l in h]
-            return np.sum([np.sum(l) for l in h]) * wd / 2
-        else: return wd * h
 
     def sgd(self, epochs, x, y, e0=0.01, t=100, et=0, wd=0.01, k=32):
         if et == 0: et = e0 / 100
         xb, yb = self.get_batches(x, y, k)
         xv, yv = [], []
-        j = []
+        j, jv = [], []
 
         if ((p := len(xb) // 5) >= 1):
             for i in range(p):
@@ -104,8 +98,10 @@ class MLP:
                 for l in range(self.d):
                     self.nn['W%d' % l] -= e * (g['W%d' % l] + wd * self.nn['W%d' % l])
                     self.nn['b%d' % l] -= e * g['b%d' % l]
-        
-        return j
+            o = self.forward(xv)
+            jv.append(self.cost(o[self.d], yv))
+
+        return j, jv
 
 class MLP1:
     def __init__(self, layers, a_foo, o_foo, reg, cost):
@@ -423,5 +419,7 @@ nn = MLP([20, 22, 20, 16, 10 ,2])
 x, y = sk.make_classification(n_samples=1000, n_features=20, n_informative=2, n_redundant=2
                            , n_repeated=0, n_classes=2, n_clusters_per_class=2, flip_y=0.01, class_sep=1.0)
 
-nn.sgd(20, x, y)
-plt.plot(range(len(j)), j) ; plt.show()
+j, jv = nn.sgd(20, x, y)
+plt.plot(range(len(j)), j)
+plt.plot(range(len(jv)), jv)
+plt.show()
