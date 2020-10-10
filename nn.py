@@ -213,6 +213,72 @@ class MLP:
                 
         return j, jv
 
+    def rmsprop_momentum(self, epochs, x, y ,e=0.01, wd=0.01, k=32, d=0.9, m=0.9):
+        xb, yb = self.get_batches(x, y, k)
+        xv, yv = [], []
+        j, jv = [], []
+        r, v = {}, {}
+        
+        for i in self.nn.keys():
+            r[i], v[i] = 0, 0
+
+        if ((p := len(xb) // 5) >= 1):
+            for i in range(p):
+                xv.append(xb.pop()) ; yv.append(yb.pop())
+        else: xv = xb.pop() ; yv = yb.pop()
+
+        for ep in range(epochs):
+            for n in range(len(xb)):
+                p = np.random.choice(len(xb))
+                xt, yt = xb[p], yb[p]
+
+                nn_c = self.nn.copy()
+                for i in self.nn.keys():
+                    self.nn[i] -= m * v[i] 
+
+                o = self.forward(xt)
+                j.append(self.cost(o[self.d], yt))
+
+                g = self.backprop(xt, yt, o, k)
+                self.nn = nn_c
+                for i in g.keys():
+                    v[i] = m * v[i] + g[i] * e
+                    r[i] = d * r[i] + (1 - d) * g[i] * g[i]
+                    g[i] = e * (1 / np.sqrt(1e-8 + r[i])) * g[i]
+                for l in range(self.d):
+                    self.nn['W%d' % l] -= e * (wd * self.nn['W%d' % l]) + g['W%d' % l]
+                    self.nn['b%d' % l] -= g['b%d' % l]
+            for xt, yt in zip(xv, yv):
+                o = self.forward(xt)
+                jv.append(self.cost(o[self.d], yt))
+                
+        return j, jv
+
+    def adam(self, epoch, x, y, e=0.01, wd=0.01, k=32, m=0.9, d=0.999):
+        xb, yb = self.get_batches(x, y, k)
+        xv, yv = [], []
+        j, jv = [], []
+        r, s = {}, {}
+
+        for i in self.nn.keys():
+            r[i], v[i] = 0, 0
+
+        if ((p := len(xb) // 5) >= 1):
+            for i in range(p):
+                xv.append(xb.pop()) ; yv.append(yb.pop())
+        else: xv = xb.pop() ; yv = yb.pop()
+
+        t = 0 
+
+        for ep in range(epoch):
+            for n in range(len(xb)):
+                p = np.random.choice(len(xb))
+                xt, yt = xb[p], yt[p]
+
+                o = self.forward(xt)
+                j.append(self.cost(o[self.d], yt))
+
+                g = self.backprop(xt, yt, o, k)
 def l_tuple(layers, i):
     try:
         layers[i] = (layers[i], layers[i + 1]) ; return(l_tuple(layers, i + 1))
@@ -222,7 +288,7 @@ nn = MLP([20, 22, 20, 16, 10 ,2])
 x, y = sk.make_classification(n_samples=1000, n_features=20, n_informative=2, n_redundant=2
                            , n_repeated=0, n_classes=2, n_clusters_per_class=2, flip_y=0.01, class_sep=1.0)
 
-j, jv = nn.sgd_momentum_nesterov(100, x, y, e0=3e-3, wd=1e-4)
+j, jv = nn.rmsprop_momentum(100, x, y, e=1e-2, wd=1e-3)
 fig, axs = plt.subplots(2)
 axs[0].plot(range(len(j)), j)
 axs[1].plot(range(len(jv)), jv)

@@ -320,7 +320,7 @@ nn = MLP1([20, 22, 20, 16, 10 ,2])
 x, y = sk.make_classification(n_samples=1000, n_features=20, n_informative=2, n_redundant=2
                            , n_repeated=0, n_classes=2, n_clusters_per_class=2, flip_y=0.01, class_sep=1.0)
 
-j = nn.rmsprop(100, x, y, e=1e-2, wd=0)
+j = nn.rmsprop_with_momentum(1000, x, y, e=1e-3, wd=0)
 fig, axs = plt.subplots(2)
 axs[0].plot(range(len(j)), j)
 plt.show()
