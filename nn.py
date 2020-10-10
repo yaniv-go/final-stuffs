@@ -90,7 +90,10 @@ class MLP:
 
         for ep in range(epochs):
             e = self.get_learning_rate(e0, et, t, ep)
-            for xt, yt in zip(xb, yb):
+            for n in range(len(xb)):
+                p = np.random.choice(len(xb))
+                xt, yt = xb[p], yb[p]
+
                 o = self.forward(xt)
                 j.append(self.cost(o[self.d], yt))
 
@@ -120,8 +123,10 @@ class MLP:
 
         for ep in range(epochs):
             e = self.get_learning_rate(e0, et, t, ep)
-            xb, yb = np.random.Generator.permutation(xb), np.random.Generator.permutation(yb)
-            for xt, yt in zip(xb, yb):
+            for n in range(len(xb)):
+                p = np.random.choice(len(xb))
+                xt, yt = xb[p], yb[p]
+
                 o = self.forward(xt)
                 j.append(self.cost(o[self.d], yt))
 
@@ -152,7 +157,10 @@ class MLP:
 
         for ep in range(epochs):
             e = self.get_learning_rate(e0, et, t, ep)
-            for xt, yt in zip(xb, yb):
+            for n in range(len(xb)):
+                p = np.random.choice(len(xb))
+                xt, yt = xb[p], yb[p]
+                
                 nn_c = self.nn.copy()
                 for i in self.nn.keys():
                     self.nn[i] -= m * v[i] 
@@ -185,8 +193,10 @@ class MLP:
         else: xv = xb.pop() ; yv = yb.pop()
 
         for ep in range(epochs):
-            random.shuffle(xb) ; random.shuffle(yb)
-            for xt, yt in zip(xb, yb):
+            for n in range(len(xb)):
+                p = np.random.choice(len(xb))
+                xt, yt = xb[p], yb[p]
+
                 o = self.forward(xt)
                 j.append(self.cost(o[self.d], yt))
 
@@ -200,6 +210,7 @@ class MLP:
             for xt, yt in zip(xv, yv):
                 o = self.forward(xt)
                 jv.append(self.cost(o[self.d], yt))
+                
         return j, jv
 
 def l_tuple(layers, i):
@@ -211,7 +222,7 @@ nn = MLP([20, 22, 20, 16, 10 ,2])
 x, y = sk.make_classification(n_samples=1000, n_features=20, n_informative=2, n_redundant=2
                            , n_repeated=0, n_classes=2, n_clusters_per_class=2, flip_y=0.01, class_sep=1.0)
 
-j, jv = nn.rmsprop(100, x, y, e=1e-2, wd=0)
+j, jv = nn.sgd_momentum_nesterov(100, x, y, e0=3e-3, wd=1e-4)
 fig, axs = plt.subplots(2)
 axs[0].plot(range(len(j)), j)
 axs[1].plot(range(len(jv)), jv)
