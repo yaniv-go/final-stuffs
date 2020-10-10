@@ -9,7 +9,7 @@ class MLP:
         assert isinstance(layers, list)
         layers = self.l_tuple(layers, 0)
         self.nn = {}
-        self.BN = batchnorm
+        self.bn = batchnorm
         self.d = len(layers)
 
         for i in range(self.d):
@@ -19,7 +19,7 @@ class MLP:
 
     def forward(self, x):
         o = [x]
-        if self.BN == 0:
+        if self.bn == 0:
             for l in range(self.d - 1):
                 o.append(self.relu(o[l] @ self.nn['W%d' % l] + self.nn['b%d' % l]))
             o.append(self.softmax(o[self.d - 1] @ self.nn['W%d' % (self.d - 1)] + self.nn['b%d' % (self.d - 1)]))
@@ -30,7 +30,8 @@ class MLP:
     
     def BN(self, x):
         mean = np.sum(x, axis=1) / x.shape[1]
-        var = [for i in range(x.shape[1])]
+        var = np.sum(np.power(x - mean, 2), axis=1) / x.shape[1]
+        var = np.sqrt(var)
 
     def backprop(self, x, y, o, k):
         g = {}
