@@ -23,8 +23,14 @@ class MLP:
             for l in range(self.d - 1):
                 o.append(self.relu(o[l] @ self.nn['W%d' % l] + self.nn['b%d' % l]))
             o.append(self.softmax(o[self.d - 1] @ self.nn['W%d' % (self.d - 1)] + self.nn['b%d' % (self.d - 1)]))
-        
+        else:
+            i_hat = []
+
         return o
+    
+    def BN(self, x):
+        mean = np.sum(x, axis=1) / x.shape[1]
+        var = [for i in range(x.shape[1])]
 
     def backprop(self, x, y, o, k):
         g = {}
@@ -259,9 +265,11 @@ class MLP:
         xv, yv = [], []
         j, jv = [], []
         r, s = {}, {}
+        s_hat, r_hat = {}, {}
 
         for i in self.nn.keys():
-            r[i], v[i] = 0, 0
+            r[i], s[i] = 0, 0
+            s_hat[i], r_hat[i] = 0, 0
 
         if ((p := len(xb) // 5) >= 1):
             for i in range(p):
@@ -273,12 +281,77 @@ class MLP:
         for ep in range(epoch):
             for n in range(len(xb)):
                 p = np.random.choice(len(xb))
-                xt, yt = xb[p], yt[p]
+                xt, yt = xb[p], yb[p]
 
                 o = self.forward(xt)
                 j.append(self.cost(o[self.d], yt))
 
                 g = self.backprop(xt, yt, o, k)
+                t += 1
+
+                for i in g.keys():
+                    s[i] = m * s[i] + (1 - m) * g[i]
+                    r[i] = d * r[i] + (1 - d) * g[i] * g[i]
+                    s_hat[i] = s[i] / (1 - np.power(m, t))
+                    r_hat[i] = r[i] / (1 - np.power(d, t))
+                    g[i] = s_hat[i] / (np.sqrt(r_hat[i]) + 1e-9)
+
+                for l in range(self.d):
+                    self.nn['W%d' % l] -=  e * (self.nn['W%d' % l] * wd + g['W%d' % l])
+                    self.nn['b%d' % l] -= e * g['b%d' % l]
+
+            for xt, yt in zip(xv, yv):
+                o = self.forward(xt)
+                jv.append(self.cost(o[self.d], yt))
+
+        return j, jv
+
+    def adam_momentum(self, epoch, x, y, e=0.01, wd=0.01, k=32, m=0.9, d=0.999):
+        xb, yb = self.get_batches(x, y, k)
+        xv, yv = [], []
+        j, jv = [], []
+        r, s = {}, {}
+        s_hat, r_hat = {}, {}
+
+        for i in self.nn.keys():
+            r[i], s[i] = 0, 0
+            s_hat[i], r_hat[i] = 0, 0
+
+        if ((p := len(xb) // 5) >= 1):
+            for i in range(p):
+                xv.append(xb.pop()) ; yv.append(yb.pop())
+        else: xv = xb.pop() ; yv = yb.pop()
+
+        t = 0 
+
+        for ep in range(epoch):
+            for n in range(len(xb)):
+                p = np.random.choice(len(xb))
+                xt, yt = xb[p], yb[p]
+
+                o = self.forward(xt)
+                j.append(self.cost(o[self.d], yt))
+
+                g = self.backprop(xt, yt, o, k)
+                t += 1
+
+                for i in g.keys():
+                    s[i] = m * s[i] + (1 - m) * g[i]
+                    r[i] = d * r[i] + (1 - d) * g[i] * g[i]
+                    s_hat[i] = m * (s[i] / (1 - np.power(m, t))) + ((1 - m) * g[i] / (1 - np.power(m, t)))
+                    r_hat[i] = r[i] / (1 - np.power(d, t))
+                    g[i] = s_hat[i] / (np.sqrt(r_hat[i]) + 1e-9)
+
+                for l in range(self.d):
+                    self.nn['W%d' % l] -=  e * (self.nn['W%d' % l] * wd + g['W%d' % l])
+                    self.nn['b%d' % l] -= e * g['b%d' % l]
+
+            for xt, yt in zip(xv, yv):
+                o = self.forward(xt)
+                jv.append(self.cost(o[self.d], yt))
+
+        return j, jv
+        
 def l_tuple(layers, i):
     try:
         layers[i] = (layers[i], layers[i + 1]) ; return(l_tuple(layers, i + 1))
@@ -288,7 +361,7 @@ nn = MLP([20, 22, 20, 16, 10 ,2])
 x, y = sk.make_classification(n_samples=1000, n_features=20, n_informative=2, n_redundant=2
                            , n_repeated=0, n_classes=2, n_clusters_per_class=2, flip_y=0.01, class_sep=1.0)
 
-j, jv = nn.rmsprop_momentum(100, x, y, e=1e-2, wd=1e-3)
+j, jv = nn.adam_momentum(100, x, y, e=1e-2, wd=1e-4)
 fig, axs = plt.subplots(2)
 axs[0].plot(range(len(j)), j)
 axs[1].plot(range(len(jv)), jv)
