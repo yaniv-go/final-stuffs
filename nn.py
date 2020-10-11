@@ -45,8 +45,9 @@ class MLP:
         for l in range(self.d - 1, -1, -1):
             g['W%d' % l] = (o[l].T @ de) / k
             g['b%d' % l] = np.sum(de, axis=0) / k
-            de = (de @ self.nn['W%d' % l].T) ; de = self.d_relu(x)
-        
+            de = de @ self.nn['W%d' % l].T
+            de = de * self.d_relu(o[l])
+
         return g
 
     def l_tuple(self, layers, i):
@@ -68,7 +69,7 @@ class MLP:
         return et
 
     def relu(self, x):
-        return np.greater(x, 0).astype(int) * x
+        return np.maximum(0, x)
 
     def d_relu(self, x):
         return np.greater(x, 0).astype(int)
@@ -91,17 +92,21 @@ class MLP:
 
     def sgd(self, epochs, x, y, e0=0.01, t=100, et=0, wd=0.01, k=32):
         if et == 0: et = e0 / 100
-        xb, yb = self.get_batches(x, y, k)
+        rxb, ryb = self.get_batches(x, y, k)
         xv, yv = [], []
         j, jv = [], []
 
-        if ((p := len(xb) // 5) >= 1):
-            for i in range(p):
-                xv.append(xb.pop()) ; yv.append(yb.pop())      
-        else: xv = xb.pop() ; yv = yb.pop()
-
         for ep in range(epochs):
             e = self.get_learning_rate(e0, et, t, ep)
+
+            xb, yb = rxb.copy(), ryb.copy()
+            xv, yv = [], []
+
+            if ((p := len(xb) // 5) >= 1):
+                for i in range(p):
+                    xv.append(xb.pop()) ; yv.append(yb.pop())
+            else: xv = xb.pop() ; yv = yb.pop() 
+
             for n in range(len(xb)):
                 p = np.random.choice(len(xb))
                 xt, yt = xb[p], yb[p]
@@ -121,20 +126,24 @@ class MLP:
     
     def sgd_momentum(self, epochs, x, y, e0=0.01, t=100, et=0, wd=0.01, k=32, m=0.9):
         if et == 0: et = e0 / 100
-        xb, yb = self.get_batches(x, y, k)
+        rxb, ryb = self.get_batches(x, y, k)
         xv, yv = [], []
         j, jv = [], []
         v = {}
         for i in self.nn.keys():
             v[i] = 0
 
-        if ((p := len(xb) // 5) >= 1):
-            for i in range(p):
-                xv.append(xb.pop()) ; yv.append(yb.pop())
-        else: xv = xb.pop() ; yv = yb.pop()
-
         for ep in range(epochs):
             e = self.get_learning_rate(e0, et, t, ep)
+
+            xb, yb = rxb.copy(), ryb.copy()
+            xv, yv = [], []
+
+            if ((p := len(xb) // 5) >= 1):
+                for i in range(p):
+                    xv.append(xb.pop()) ; yv.append(yb.pop())
+            else: xv = xb.pop() ; yv = yb.pop() 
+
             for n in range(len(xb)):
                 p = np.random.choice(len(xb))
                 xt, yt = xb[p], yb[p]
@@ -155,20 +164,23 @@ class MLP:
 
     def sgd_momentum_nesterov(self, epochs, x, y, e0=0.01, t=100, et=0, wd=0.01, k=32, m=0.9):
         if et == 0: et = e0 / 100
-        xb, yb = self.get_batches(x, y, k)
-        xv, yv = [], []
+        rxb, ryb = self.get_batches(x, y, k)
         j, jv = [], []
         v = {}
         for i in self.nn.keys():
             v[i] = 0
 
-        if ((p := len(xb) // 5) >= 1):
-            for i in range(p):
-                xv.append(xb.pop()) ; yv.append(yb.pop())
-        else: xv = xb.pop() ; yv = yb.pop()
-
         for ep in range(epochs):
             e = self.get_learning_rate(e0, et, t, ep)
+
+            xb, yb = rxb.copy(), ryb.copy()
+            xv, yv = [], []
+
+            if ((p := len(xb) // 5) >= 1):
+                for i in range(p):
+                    xv.append(xb.pop()) ; yv.append(yb.pop())
+            else: xv = xb.pop() ; yv = yb.pop() 
+
             for n in range(len(xb)):
                 p = np.random.choice(len(xb))
                 xt, yt = xb[p], yb[p]
@@ -192,19 +204,21 @@ class MLP:
         return j, jv       
     
     def rmsprop(self, epochs, x, y, e=0.01, wd=0.01, k=32, d=0.9):
-        xb, yb = self.get_batches(x, y, k)
-        xv, yv = [], []
+        rxb, ryb = self.get_batches(x, y, k)
         j, jv = [], []
         r = {}
         for i in self.nn.keys():
             r[i] = 0
 
-        if ((p := len(xb) // 5) >= 1):
-            for i in range(p):
-                xv.append(xb.pop()) ; yv.append(yb.pop())
-        else: xv = xb.pop() ; yv = yb.pop()
-
         for ep in range(epochs):
+            xb, yb = rxb.copy(), ryb.copy()
+            xv, yv = [], []
+
+            if ((p := len(xb) // 5) >= 1):
+                for i in range(p):
+                    xv.append(xb.pop()) ; yv.append(yb.pop())
+            else: xv = xb.pop() ; yv = yb.pop() 
+                       
             for n in range(len(xb)):
                 p = np.random.choice(len(xb))
                 xt, yt = xb[p], yb[p]
@@ -226,20 +240,22 @@ class MLP:
         return j, jv
 
     def rmsprop_momentum(self, epochs, x, y ,e=0.01, wd=0.01, k=32, d=0.9, m=0.9):
-        xb, yb = self.get_batches(x, y, k)
-        xv, yv = [], []
+        rxb, ryb = self.get_batches(x, y, k)
         j, jv = [], []
         r, v = {}, {}
         
         for i in self.nn.keys():
             r[i], v[i] = 0, 0
 
-        if ((p := len(xb) // 5) >= 1):
-            for i in range(p):
-                xv.append(xb.pop()) ; yv.append(yb.pop())
-        else: xv = xb.pop() ; yv = yb.pop()
-
         for ep in range(epochs):
+            xb, yb = rxb.copy(), ryb.copy()
+            xv, yv = [], []
+
+            if ((p := len(xb) // 5) >= 1):
+                for i in range(p):
+                    xv.append(xb.pop()) ; yv.append(yb.pop())
+            else: xv = xb.pop() ; yv = yb.pop()
+
             for n in range(len(xb)):
                 p = np.random.choice(len(xb))
                 xt, yt = xb[p], yb[p]
@@ -267,8 +283,7 @@ class MLP:
         return j, jv
 
     def adam(self, epoch, x, y, e=0.01, wd=0.01, k=32, m=0.9, d=0.999):
-        xb, yb = self.get_batches(x, y, k)
-        xv, yv = [], []
+        rxb, ryb = self.get_batches(x, y, k)
         j, jv = [], []
         r, s = {}, {}
         s_hat, r_hat = {}, {}
@@ -277,14 +292,17 @@ class MLP:
             r[i], s[i] = 0, 0
             s_hat[i], r_hat[i] = 0, 0
 
-        if ((p := len(xb) // 5) >= 1):
-            for i in range(p):
-                xv.append(xb.pop()) ; yv.append(yb.pop())
-        else: xv = xb.pop() ; yv = yb.pop()
-
         t = 0 
 
         for ep in range(epoch):
+            xb, yb = rxb.copy(), ryb.copy()
+            xv, yv = [], []
+
+            if ((p := len(xb) // 5) >= 1):
+                for i in range(p):
+                    xv.append(xb.pop()) ; yv.append(yb.pop())
+            else: xv = xb.pop() ; yv = yb.pop()
+
             for n in range(len(xb)):
                 p = np.random.choice(len(xb))
                 xt, yt = xb[p], yb[p]
@@ -313,8 +331,7 @@ class MLP:
         return j, jv
 
     def adam_momentum(self, epoch, x, y, e=0.01, wd=0.01, k=32, m=0.9, d=0.999):
-        xb, yb = self.get_batches(x, y, k)
-        xv, yv = [], []
+        rxb, ryb = self.get_batches(x, y, k)
         j, jv = [], []
         r, s = {}, {}
         s_hat, r_hat = {}, {}
@@ -323,14 +340,17 @@ class MLP:
             r[i], s[i] = 0, 0
             s_hat[i], r_hat[i] = 0, 0
 
-        if ((p := len(xb) // 5) >= 1):
-            for i in range(p):
-                xv.append(xb.pop()) ; yv.append(yb.pop())
-        else: xv = xb.pop() ; yv = yb.pop()
-
         t = 0 
 
         for ep in range(epoch):
+            xb, yb = rxb.copy(), ryb.copy()
+            xv, yv = [], []
+
+            if ((p := len(xb) // 5) >= 1):
+                for i in range(p):
+                    xv.append(xb.pop()) ; yv.append(yb.pop())
+            else: xv = xb.pop() ; yv = yb.pop()
+
             for n in range(len(xb)):
                 p = np.random.choice(len(xb))
                 xt, yt = xb[p], yb[p]
@@ -367,7 +387,7 @@ nn = MLP([20, 22, 20, 16, 10 ,2])
 x, y = sk.make_classification(n_samples=1000, n_features=20, n_informative=2, n_redundant=2
                            , n_repeated=0, n_classes=2, n_clusters_per_class=2, flip_y=0.01, class_sep=1.0)
 
-j, jv = nn.adam_momentum(100, x, y, e=1e-2, wd=1e-4)
+j, jv = nn.adam_momentum(100, x, y, e=1e-3, wd=1e-4)
 fig, axs = plt.subplots(2)
 axs[0].plot(range(len(j)), j)
 axs[1].plot(range(len(jv)), jv)
