@@ -15,28 +15,38 @@ class MLP:
         for i in range(self.d):
             self.nn['W%d' % i] = np.random.rand(layers[i][0], layers[i][1]) * np.sqrt(2. / layers[i][0])
             self.nn['b%d' % i] = np.zeros(layers[i][1])
-            if batchnorm == 1: self.nn['BN%d' % i] = [1, 0]
+            if batchnorm == 1: self.nn['gamma%d' % i], self.nn['beta%d' % i] = 1, 0
 
     def forward(self, x):
-        if self.bn == 0:
-            o = [x]
-            for l in range(self.d - 1):
-                o.append(self.relu(o[l] @ self.nn['W%d' % l] + self.nn['b%d' % l]))
-            o.append(self.softmax(o[self.d - 1] @ self.nn['W%d' % (self.d - 1)] + self.nn['b%d' % (self.d - 1)]))
-        else:
-            o = {}
-            for l in range(self.d):
-                pass
-            
+        o = [x]
+        for l in range(self.d - 1):
+            o.append(self.relu(o[l] @ self.nn['W%d' % l] + self.nn['b%d' % l]))
+        o.append(self.softmax(o[self.d - 1] @ self.nn['W%d' % (self.d - 1)] + self.nn['b%d' % (self.d - 1)]))
 
         return o
     
+    def forward_bn(self, x):
+        o = {'i0' : x}
+        for l in range(self.d - 1):
+            o['o%d' % l] = o['i%d' % l] @ self.nn['W%d' % l] + self.nn['b%d' % l]
+            o['mean%d' % l], o['var%d' % l], o['i_hat%d' % l] = self.BN( o['o%d' % l])
+            o['i%d' % (l + 1)] = self.relu(self.nn['gamma' % l] * o['i_hat%d' % l] + self.nn['beta%d' % l])
+        
+        return o
+
     def BN(self, x):
         mean = np.sum(x, axis=0) / x.shape[0]
         var = np.sum(np.power(x - mean, 2), axis=0) / x.shape[0]
         x_hat = (x - mean) / np.sqrt(var + 1e-8)
 
         return mean, var, x_hat
+
+    def backprop_BN(self, x, y, o, k):
+        g = {}
+        de = o['i%d' % self.d] - y
+
+        for l in range(self.d - 1, -1, -1):
+            g['']
 
     def backprop(self, x, y, o, k):
         g = {}
