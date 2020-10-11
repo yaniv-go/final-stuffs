@@ -18,20 +18,25 @@ class MLP:
             if batchnorm == 1: self.nn['BN%d' % i] = [1, 0]
 
     def forward(self, x):
-        o = [x]
         if self.bn == 0:
+            o = [x]
             for l in range(self.d - 1):
                 o.append(self.relu(o[l] @ self.nn['W%d' % l] + self.nn['b%d' % l]))
             o.append(self.softmax(o[self.d - 1] @ self.nn['W%d' % (self.d - 1)] + self.nn['b%d' % (self.d - 1)]))
         else:
-            i_hat = []
+            o = {}
+            for l in range(self.d):
+                pass
+            
 
         return o
     
     def BN(self, x):
-        mean = np.sum(x, axis=1) / x.shape[1]
-        var = np.sum(np.power(x - mean, 2), axis=1) / x.shape[1]
-        var = np.sqrt(var)
+        mean = np.sum(x, axis=0) / x.shape[0]
+        var = np.sum(np.power(x - mean, 2), axis=0) / x.shape[0]
+        x_hat = (x - mean) / np.sqrt(var + 1e-8)
+
+        return mean, var, x_hat
 
     def backprop(self, x, y, o, k):
         g = {}
@@ -40,7 +45,7 @@ class MLP:
         for l in range(self.d - 1, -1, -1):
             g['W%d' % l] = (o[l].T @ de) / k
             g['b%d' % l] = np.sum(de, axis=0) / k
-            de = de @ self.nn['W%d' % l].T
+            de = (de @ self.nn['W%d' % l].T) ; de = self.d_relu(x)
         
         return g
 
