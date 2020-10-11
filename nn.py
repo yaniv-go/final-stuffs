@@ -41,13 +41,6 @@ class MLP:
 
         return mean, var, x_hat
 
-    def backprop_BN(self, x, y, o, k):
-        g = {}
-        de = o['i%d' % self.d] - y
-
-        for l in range(self.d - 1, -1, -1):
-            g['']
-
     def backprop(self, x, y, o, k):
         g = {}
         de = o[self.d] - y
