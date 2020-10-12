@@ -13,24 +13,40 @@ class MLPBN:
         for l in range(self.d):
             self.nn['W%d' % l] = np.random.rand(layers[l][0], layers[l][1]) * np.sqrt(2. / layers[l][0])
             self.nn['b%d' % l] = np.zeros(layers[l][1])
-            self.nn['gamma%d' % l] = 1 ; self.nn['beta%d' % l]
+            if l == self.d - 1: break
+            self.nn['gamma%d' % l] = np.ones(layers[l][1]) ; self.nn['beta%d' % l] = np.zeros(layers[l][1])
     
     def backprop(self, x, y ,o, k):
-        g = {}
-        de = o['i%d' % self.d] - y
+        g = {} ; d = self.d - 1
+        do = o['o%d' % d] - y
+        di = do
 
-        for l in range(self.d, -1, -1, -1):
-            g['dbeta%d' % l] = np.sum(de, axis=0)
-            g['dgamma%d' % l] = np.sum(()) 
+        for l1 in range(d, -1, -1):
+            g['W%d' % l1] = (o['i%d' % l1].T @ di) / k
+            g['b%d' % l1] = np.sum(di, axis=0) / k
+            do = (di @ self.nn['W%d' % l1].T) * self.d_relu(o['i%d' % l1])
+            
+            l2 = l1 - 1
+            dohat = do * self.nn['gamma%d' % l2] 
+            print (dohat * (o['i%d' % l2] - o['m%d' % l2]) * (-1./2.) * (o['v%d' % l2] + 1e-8) ** (-3./-2.))
+            dvar = np.sum(dohat * (o['i%d' % l2] - o['m%d' % l2]) * (-1./2.) * (o['v%d' % l2] + 1e-8) ** (-3./-2.), axis=0)
+            dmean = np.sum(dohat * (o['v%d' % l2] + 1e-8) ** (-1./2.), axis=0) + dvar * (1./len(o['i%d' % l2]) * np.sum(-2 * (o['i%d' % l2] - o['m%d' % l2]), axis=0))
+            di = dohat * ((o['v%d' % l2] + 1e-8) ** (-1./2.)) + dvar  * (2 * (o['i%d' % l2] - o['m%d' % l2])) / len(o['i%d' % l2]) + dmean * len(o['i%d' % l2])
+            g['gamma%d' % l2] = np.sum(do * o['ohat%d' % l2], axis=0)
+            g['beta%d' % l2] = np.sum(do, axis=0)
 
+        return g
+    
     def forward(self, x):
         o = {'i0' : x}
-        for l in range(self.d - 1):
+        d = self.d - 1
+        for l in range(d):
             o['o%d' % l] = o['i%d' % l] @ self.nn['W%d' % l] + self.nn['b%d' % l]
-            o['mean%d' % l], o['var%d' % l], o['i_hat%d' % l] = self.BN( o['o%d' % l])
-            o['i%d' % (l + 1)] = self.relu(self.nn['gamma' % l] * o['i_hat%d' % l] + self.nn['beta%d' % l])
-        
-        return o
+            o['m%d' % l], o['v%d' % l], o['ohat%d' % l] = self.bn(o['o%d' % l])
+            o['i%d' % (l + 1)] = self.relu(self.nn['gamma%d' % l] * o['ohat%d' % l] + self.nn['beta%d' % l])
+        o['o%d' % d] = self.softmax(o['i%d' % d] @ self.nn['W%d' % d] + self.nn['b%d' % d])
+
+        return o 
 
     def bn(self, x):
         mean = np.sum(x, axis=0) / x.shape[0]
@@ -78,3 +94,9 @@ class MLPBN:
     def get_one_hot(self, targets, nb_classes):
         res = np.eye(nb_classes)[np.array(targets).reshape(-1)]
         return res.reshape(list(targets.shape)+[nb_classes])
+
+nn = MLPBN([2, 3, 4, 3, 1])
+x = np.array([[1, 0], [0, 1], [1, 0]])
+y = np.array([[0], [1], [0]])
+o  = nn.forward(x)
+print (nn.backprop(x, y, o, 3))
