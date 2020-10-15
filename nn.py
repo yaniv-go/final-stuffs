@@ -273,12 +273,11 @@ class MLP:
                 g = self.backprop(xt, yt, o, k)
                 self.nn = nn_c
                 for i in g.keys():
-                    v[i] = m * v[i] + g[i] * e
                     r[i] = d * r[i] + (1 - d) * g[i] * g[i]
-                    g[i] = e * (1 / np.sqrt(1e-8 + r[i])) * g[i]
+                    v[i] = v[i] * m + e * (((r[i] + 1e-8) ** (-1./2.)) * g[i])
                 for l in range(self.d):
-                    self.nn['W%d' % l] -= e * (wd * self.nn['W%d' % l]) + g['W%d' % l]
-                    self.nn['b%d' % l] -= g['b%d' % l]
+                    self.nn['W%d' % l] -= e * (wd * self.nn['W%d' % l]) + v['W%d' % l]
+                    self.nn['b%d' % l] -= v['b%d' % l]
             for xt, yt in zip(xv, yv):
                 o = self.forward(xt)
                 jv.append(self.cost(o[self.d], yt))
@@ -390,7 +389,7 @@ nn = MLP([20, 22, 20, 16, 10 ,2])
 x, y = sk.make_classification(n_samples=1000, n_features=20, n_informative=2, n_redundant=2
                            , n_repeated=0, n_classes=2, n_clusters_per_class=2, flip_y=0.01, class_sep=1.0)
 
-j, jv = nn.sgd_momentum(100, x, y, e0=1e-4, wd=1e-4 )
+j, jv = nn.rmsprop_momentum(100, x, y, e=1e-4, wd=1e-4)
 fig, axs = plt.subplots(2)
 axs[0].plot(range(len(j)), j)
 axs[1].plot(range(len(jv)), jv)
