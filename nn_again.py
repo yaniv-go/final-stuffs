@@ -19,22 +19,24 @@ class MLPBN:
     def backprop(self, x, y ,o, k):
         g = {} ; d = self.d - 1
         do = o['o%d' % d] - y
-        di = do
 
-        for l1 in range(d, -1, -1):
-            g['W%d' % l1] = (o['i%d' % l1].T @ di) / k
-            g['b%d' % l1] = np.sum(di, axis=0) / k
-            do = (di @ self.nn['W%d' % l1].T) * self.d_relu(o['i%d' % l1])
+        g['W%d' % d] = (o['i%d' % d].T @ do) / k
+        g['b%d' % d] = np.sum(do, axis=0) / k
+        do = do @ self.nn['W%d' % d].T
+        do = do * self.d_relu(o['i%d' % d])
+
+        for l in range(d - 1, -1, -1):
+            dohat = do * self.nn['gamma%d' % l]
+            dvar = dohat * (o['o%d' % l] - o['m%d' % l]) * (-1. / 2.) * (o['v%d' % l]) ** (-3. / 2.)
+            dm = dohat * (o['v%d' % l] + 1e-8) ** (-1./2) + dvar * ((-2 * (o['o%d' % l] - o['m%d' % l])) / k)
+            di = dohat * (o['v%d' % l] + 1e-8) ** (-1./2) + dvar * (2 * (o['o%d' % l] - o['m%d' % l]) /k) + dm /k
             
-            l2 = l1 - 1
-            dohat = do * self.nn['gamma%d' % l2] 
-            print (dohat * (o['i%d' % l2] - o['m%d' % l2]) * (-1./2.) * (o['v%d' % l2] + 1e-8) ** (-3./-2.))
-            dvar = np.sum(dohat * (o['i%d' % l2] - o['m%d' % l2]) * (-1./2.) * (o['v%d' % l2] + 1e-8) ** (-3./-2.), axis=0)
-            dmean = np.sum(dohat * (o['v%d' % l2] + 1e-8) ** (-1./2.), axis=0) + dvar * (1./len(o['i%d' % l2]) * np.sum(-2 * (o['i%d' % l2] - o['m%d' % l2]), axis=0))
-            di = dohat * ((o['v%d' % l2] + 1e-8) ** (-1./2.)) + dvar  * (2 * (o['i%d' % l2] - o['m%d' % l2])) / len(o['i%d' % l2]) + dmean * len(o['i%d' % l2])
-            g['gamma%d' % l2] = np.sum(do * o['ohat%d' % l2], axis=0)
-            g['beta%d' % l2] = np.sum(do, axis=0)
-
+            g['gamma%d' % l] = np.sum(do * o['ohat%d' % l], axis=0)
+            g['beta%d' % l] = np.sum(do, axis=0)
+            g['W%d' % l] = (o['i%d' % l].T @ di) / k
+            g['b%d' % l] = np.sum(di, axis=0) / k
+            do = di @ self.nn['W%d' % l].T
+            do = do * self.d_relu(o['i%d' % l])
         return g
     
     def forward(self, x):
@@ -95,8 +97,8 @@ class MLPBN:
         res = np.eye(nb_classes)[np.array(targets).reshape(-1)]
         return res.reshape(list(targets.shape)+[nb_classes])
 
-nn = MLPBN([2, 3, 4, 3, 1])
+nn = MLPBN([2, 3, 4, 3, 2])
 x = np.array([[1, 0], [0, 1], [1, 0]])
-y = np.array([[0], [1], [0]])
+y = np.array([[0, 0], [1, 0], [0, 0]])
 o  = nn.forward(x)
-print (nn.backprop(x, y, o, 3))
+print (nn.backprop(x, y, o, 3)) 
