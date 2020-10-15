@@ -16,6 +16,44 @@ class MLPBN:
             if l == self.d - 1: break
             self.nn['gamma%d' % l] = np.ones(layers[l][1]) ; self.nn['beta%d' % l] = np.zeros(layers[l][1])
     
+    def sgd(self, epochs, x, y, e0=0.01, t=100, et=0, wd=1e-3, k=32):
+        if et==0: et = e0 / 100
+        rxb, ryb = self.get_batches(x, y, k)
+        xv, yv = [], []
+        j, jv = [], []
+
+        for ep in range(epochs):
+            e = self.get_learning_rate(e0, et, t, ep)
+
+            xb, yb = rxb.copy(), ryb.copy()
+            xv, yv = [], []
+
+            if ((p := len(xb) // 5) >= 1):
+                for i in range(p):
+                    xv.append(xb.pop()) ; yv.append(yb.pop())
+            else: xv = xb.pop() ; yv = yb.pop()
+
+            for n in range(len(xb)):
+                p = np.random.choice(len(xb))
+                xt, yt = xb[p], yb[p]
+
+                o = self.forward(xt)
+                j.append(self.cost(o['o%d' % (self.d - 1)], yt))
+
+                g = self.backprop(xt, yt, o, k)
+                for l in range(self.d - 1):
+                    self.nn['W%d' % l] -= e * (g['W%d' % l] + wd * self.nn['W%d' % l])
+                    self.nn['b%d' % l] -= e * g['b%d' % l]
+                    self.nn['gamma%d' % l] -= e * g['gamma%d' % l]
+                    self.nn['beta%d' % l] -= e * g['beta%d' % l]
+                self.nn['W%d' % (self.d - 1)] -= e * (g['W%d' % (self.d - 1)] + wd * self.nn['W%d' % (self.d - 1)])
+                self.nn['b%d' % (self.d - 1)] -= e * g['b%d' % (self.d - 1)]
+            for xt, yt in zip(xv, yv):
+                o = self.forward(xt)
+                jv.append(self.cost(o['o%d' % (self.d - 1)], yt))
+
+        return j, jv
+
     def backprop(self, x, y ,o, k):
         g = {} ; d = self.d - 1
         do = o['o%d' % d] - y
@@ -97,8 +135,12 @@ class MLPBN:
         res = np.eye(nb_classes)[np.array(targets).reshape(-1)]
         return res.reshape(list(targets.shape)+[nb_classes])
 
-nn = MLPBN([2, 3, 4, 3, 2])
-x = np.array([[1, 0], [0, 1], [1, 0]])
-y = np.array([[0, 0], [1, 0], [0, 0]])
-o  = nn.forward(x)
-print (nn.backprop(x, y, o, 3)) 
+nn = MLPBN([20, 22, 20, 16, 10 ,2])
+x, y = sk.make_classification(n_samples=1000, n_features=20, n_informative=2, n_redundant=2
+                           , n_repeated=0, n_classes=2, n_clusters_per_class=2, flip_y=0.01, class_sep=1.0)
+
+j, jv = nn.sgd(100, x, y, e0=1e-1, wd=0)
+fig, axs = plt.subplots(2)
+axs[0].plot(range(len(j)), j)
+axs[1].plot(range(len(jv)), jv)
+plt.show()
