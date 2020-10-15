@@ -65,9 +65,9 @@ class MLPBN:
 
         for l in range(d - 1, -1, -1):
             dohat = do * self.nn['gamma%d' % l]
-            dvar = dohat * (o['o%d' % l] - o['m%d' % l]) * (-1. / 2.) * (o['v%d' % l]) ** (-3. / 2.)
-            dm = dohat * (o['v%d' % l] + 1e-8) ** (-1./2) + dvar * ((-2 * (o['o%d' % l] - o['m%d' % l])) / k)
-            di = dohat * (o['v%d' % l] + 1e-8) ** (-1./2) + dvar * (2 * (o['o%d' % l] - o['m%d' % l]) /k) + dm /k
+            dvar = dohat * (o['o%d' % l] - o['m%d' % l]) * (-1. / 2.) * (o['v%d' % l] + 1e-8) ** (-3. / 2.)
+            dm = dohat * (((o['v%d' % l] + 1e-8) ** (-1./2)) * -1) + dvar * ((-2 * (o['o%d' % l] - o['m%d' % l])) / k)
+            di = dohat * (o['v%d' % l] + 1e-8) ** (-1./2) + dvar * (2 * (o['o%d' % l] - o['m%d' % l]) /k) + dm / k
             
             g['gamma%d' % l] = np.sum(do * o['ohat%d' % l], axis=0)
             g['beta%d' % l] = np.sum(do, axis=0)
