@@ -390,7 +390,7 @@ nn = MLP([20, 22, 20, 16, 10 ,2])
 x, y = sk.make_classification(n_samples=1000, n_features=20, n_informative=2, n_redundant=2
                            , n_repeated=0, n_classes=2, n_clusters_per_class=2, flip_y=0.01, class_sep=1.0)
 
-j, jv = nn.sgd(100, x, y, e0=1e-1, wd=0 )
+j, jv = nn.sgd_momentum(100, x, y, e0=1e-4, wd=1e-4 )
 fig, axs = plt.subplots(2)
 axs[0].plot(range(len(j)), j)
 axs[1].plot(range(len(jv)), jv)

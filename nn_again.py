@@ -16,6 +16,98 @@ class MLPBN:
             if l == self.d - 1: break
             self.nn['gamma%d' % l] = np.ones(layers[l][1]) ; self.nn['beta%d' % l] = np.zeros(layers[l][1])
     
+    def sgd_momentum_nesterov(self, epochs, x, y, e0=0.01, t=100, et=0, wd=0.01, k=32, m=0.9):
+        if et == 0: e0 / 100
+        rxb, ryb = [], []
+        j, jv = [], []
+        v = {}
+
+        for i in self.nn.keys():
+            v[i] = 0
+
+        for ep in range(epochs):
+            e = self.get_learning_rate(e0, et, t, ep)
+
+            xb, yb = rxb.copy(), ryb.copy()
+            xv, yv = [], []
+
+            if ((p := len(xb) // 5) >= 1):
+                for i in range(p):
+                    xv.append(xb.pop()) ; yv.append(yb.pop()) 
+            else: xv = xb.pop() ; yv = yb.pop()
+
+            for n in range(len(xb)):
+                p = np.random.choice(len(xb))
+                xt, yt = xb[p], yb[p]
+
+                nn_c = self.nn.copy()
+                for i in self.nn.keys():
+                    self.nn[i] -= m * v[i]
+                o = self.forward(xt)
+                j.append(self.cost(o['o%d' % (self.d - 1)], yt))
+
+                g = self.backprop(xt, yt, o, k)
+                self.nn = nn_c
+                for i in g.keys():
+                    v[i] = m * v[i] + e * g[i]
+                for l in range(self.d - 1):
+                    self.nn['W%d' % l] -= v['W%d' % l] + (e * wd * self.nn['W%d' % l])
+                    self.nn['b%d' % l] -= v['b%d' % l]
+                    self.nn['gamma%d' % l] -= v['gamma%d' % l]
+                    self.nn['beta%d' % l] -= v['beta%d' % l]
+                self.nn['W%d' % (self.d - 1)] -= v['W%d' % (self.d - 1)] + (e * wd * self.nn['W%d' % (self.d - 1)])
+                self.nn['b%d' % (self.d - 1)] -= v['b%d' % (self.d - 1)]
+            for xt, yt in zip(xv, yv):
+                o = self.forward(xt)
+                jv.append(self.cost(o['o%d' % (self.d - 1)], yt))
+        
+        return j, jv
+                
+
+    def sgd_momentum(self, epochs, x, y ,e0=0.01, t=100, et=0, wd=1e-8, k=32, m=0.9):
+        if et==0: et = e0 / 100
+        rxb, ryb = self.get_batches(x, y, k)
+        xv, yv = [], []
+        j, jv = [], []
+        v = {}
+
+        for i in self.nn.keys():
+            v[i] = 0
+
+        for ep in range(epochs):
+            e = self.get_learning_rate(e0, et, t, ep)
+
+            xb, yb = rxb.copy(), ryb.copy()
+            xv, yv = [], []
+
+            if ((p := len(xb) // 5) >= 1):
+                for i in range(p):
+                    xv.append(xb.pop()) ; yv.append(yb.pop())
+            else: xv = xb.pop() ; yv = yb.pop()
+
+            for n in range(len(xb)):
+                p = np.random.choice(len(xb))
+                xt, yt = xb[p], yb[p]
+
+                o = self.forward(xt)
+                j.append(self.cost(o['o%d' % (self.d - 1)], yt))
+
+                g = self.backprop(xt, yt, o, k)
+                for i in g.keys():
+                    v[i] = m * v[i] + e * g[i]
+                for l in range(self.d - 1):
+                    self.nn['W%d' % l] -= v['W%d' % l] + (e * wd * self.nn['W%d' % l])
+                    self.nn['b%d' % l] -= v['b%d' % l]
+                    self.nn['gamma%d' % l] -= v['gamma%d' % l]
+                    self.nn['beta%d' % l] -= v['beta%d' % l]
+                self.nn['W%d' % (self.d - 1)] -= v['W%d' % (self.d - 1)] + (e * wd * self.nn['W%d' % (self.d - 1)])
+                self.nn['b%d' % (self.d - 1)] -= v['b%d' % (self.d - 1)]
+            for xt, yt in zip(xv, yv):
+                o = self.forward(xt)
+                jv.append(self.cost(o['o%d' % (self.d - 1)], yt))
+
+        return j, jv
+
     def sgd(self, epochs, x, y, e0=0.01, t=100, et=0, wd=1e-3, k=32):
         if et==0: et = e0 / 100
         rxb, ryb = self.get_batches(x, y, k)
@@ -139,7 +231,7 @@ nn = MLPBN([20, 22, 20, 16, 10 ,2])
 x, y = sk.make_classification(n_samples=1000, n_features=20, n_informative=2, n_redundant=2
                            , n_repeated=0, n_classes=2, n_clusters_per_class=2, flip_y=0.01, class_sep=1.0)
 
-j, jv = nn.sgd(100, x, y, e0=1e-1, wd=0)
+j, jv = nn.sgd_momentum(100, x, y, e0=1e-3, wd=1e-4)
 fig, axs = plt.subplots(2)
 axs[0].plot(range(len(j)), j)
 axs[1].plot(range(len(jv)), jv)
