@@ -20,17 +20,23 @@ for j in range(a.shape[1]):
 print (a)
 print (x)
 """
-
+"""
 a = np.arange(9) + 1
 a = np.array((a, np.roll(a, 1), np.roll(a, 2)))
-k = 3 ; c = 0
-i = 0 ; j = 1
-x = a[i, j]
+x = np.concatenate((np.arange(0, 27, 3), np.arange(1, 27, 3), np.arange(2, 27, 3)), axis=0)
+a = np.ravel(a)[x].reshape(3, 9)
+print (x)
+print (np.arange(0, 27, 3).dtype)
+"""
+a = np.arange(18)
+print (a)
+b = np.zeros(18).astype(bool)
+b = np.packbits(b)
+print (b)
 
-while c != 26 - 1:
-    p = j // k
-    m = j - 3 * p
-    n = i * 3 + p
-    a[m, n], x = x, a[m, n]
-    i = m ; j = n
-    print (a)
+for i in range(a.shape[0]):
+    x = i % 3 ; y = i // 3
+    n = 6 * x + y 
+    j = n // 8
+    np.unpackbits
+
