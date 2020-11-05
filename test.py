@@ -21,22 +21,24 @@ print (a)
 print (x)
 """
 """
-a = np.arange(9) + 1
-a = np.array((a, np.roll(a, 1), np.roll(a, 2)))
-x = np.concatenate((np.arange(0, 27, 3), np.arange(1, 27, 3), np.arange(2, 27, 3)), axis=0)
-a = np.ravel(a)[x].reshape(3, 9)
-print (x)
-print (np.arange(0, 27, 3).dtype)
+best memory wise
+data = np.arange(16 * 3)
+b = np.ones(data.shape).astype(bool)
+i = 0 ; x = data[0] ; k = 4 ; f = 3
+while np.any(b):
+    if b[i] == 0: i = np.argmax(b > 0) ; x = data[i] ; continue
+    b[i] = 0
+    j = i % k * k * f + i // k
+    data[j], x = x, data[j]     
+    i = j
+print (data.reshape(4, 12))
+""" 
 """
-a = np.arange(18)
-print (a)
-b = np.zeros(18).astype(bool)
-b = np.packbits(b)
-print (b)
-
-for i in range(a.shape[0]):
-    x = i % 3 ; y = i // 3
-    n = 6 * x + y 
-    j = n // 8
-    np.unpackbits
-
+best speed
+data = np.arange(27)
+k = 3
+x = np.arange(0, data.shape[0], k)
+x = np.concatenate((x, x + 1, x + 2))
+data = data[x]
+print (data.reshape(3, 9))
+"""
