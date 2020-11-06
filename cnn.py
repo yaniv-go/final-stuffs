@@ -4,6 +4,18 @@ import matplotlib.pyplot as plt
 import sklearn.datasets as sk
 import random
 
+class Fc():
+    def __init__(self, row, column):
+        self.row = row
+        self.col = column
+
+        self.w = np.random.rand(self.row, self.col) * np.sqrt(2./self.col)
+        self.b = np.zeros(self.col)
+
+    def forward(self, x):
+        o = x @ self.w + self.b
+        return o
+
 class MaxPool():
     def __init__(self, size=2, stride=1, padding=0):
         self.ks = 2
