@@ -138,6 +138,10 @@ def im2col(X, HF, WF, stride, pad):
     cols = X_padded[:, d, i, j]
     cols = np.concatenate(cols, axis=-1)
     return cols
-a = np.arange(9) + 1
-print (im2col(a.reshape(1, 1, 3, 3), 2, 2, 1, 0))
 
+a = Fc(1, 1, 1)
+print (a.forward(np.array([[1]])))
+
+
+
+    

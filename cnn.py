@@ -4,35 +4,79 @@ import matplotlib.pyplot as plt
 import sklearn.datasets as sk
 import random
 
+class SoftmaxLayer():
+    def __init__(self):
+        self.mem = 0
+
+    def forward(self, x):
+        self.mem = self.softmax(x)
+        return self.mem
+    
+    def softmax(self, z):
+        if not len(z.shape) == 2: z = np.array([z])
+        s = np.array([np.max(z,axis=1)]).T
+        e_z = np.exp(z - s)
+
+        return e_z / np.array([np.sum(e_z, axis=1)]).T
+
+class ReluLayer():
+    def __init__(self):
+        self.mem = 0
+
+    def forward(self, x):
+        self.mem = x
+        return self.relu(x)
+
+    def relu(self, x):
+        return np.maximum(0, x)
+
+    def d_relu(self, x):
+        return np.greater(x, 0).astype(int)
+
 class Fc():
-    def __init__(self, row, column):
+    def __init__(self, row, column, prev_shape=0):
+        self.prev_shape = prev_shape
+        self.mem = 0
         self.row = row
         self.col = column
 
         self.w = np.random.rand(self.row, self.col) * np.sqrt(2./self.col)
         self.b = np.zeros(self.col)
+        if self.prev_shape: self.forward = self.ff
+        else: self.forward = self.f
 
-    def forward(self, x):
+    def f(self, x):
+        self.mem = x
+        o = x @ self.w + self.b
+        return o
+
+    def ff(self, x):
+        self.prev_shape = x.shape
+        x = x.flatten()
+        self.mem = x
         o = x @ self.w + self.b
         return o
 
 class MaxPool():
     def __init__(self, size=2, stride=1, padding=0):
+        self.mem = 0
         self.ks = 2
         self.s = stride
         self.p = padding
     
     def forward(self, x):
+        self.mem = x
+
         n, cp, hp, wp = x.shape
         c = cp
         h = int(((hp + 2 * self.p - self.ks) / self.s) + 1)
         w = int(((wp + 2 * self.p - self.ks) / self.s) + 1)
 
         xcol = im2col(x, self.ks, self.ks, self.s, self.p) 
-        xcol = xcol.reshape(c, xcol.shape[0] // c, -1)
+        xcol = xcol.reshape((c, xcol.shape[0] // c, -1))
         mp = np.max(xcol, axis=1)
         mp = np.array(np.hsplit(mp, n))
-        mp = mp.reshape(n, c, h, w)
+        mp = mp.reshape((n, c, h, w))
 
         return mp
 
@@ -47,41 +91,47 @@ class ConvLayer:
         h = int(((hp + 2 * self.p - self.ks) / self.s) + 1)
         w = int(((wp + 2 * self.p - self.ks) / self.s) + 1)
         
-
         xcol = im2col(x, self.ks, self.ks, self.s, self.p)
         o = self.kernels @ xcol
-        o = np.array(np.hsplit(o, n)).reshape(n, c, h, w)
+        o = np.array(np.hsplit(o, n)).reshape((n, c, h, w))
         
+        self.cache = x, xcol, self.kernels
+
         return o
 
 class CNN:
     def __init__(self):
         self.nn = []
     
+    def add_softmax_layer(self):
+        self.nn.append(SoftmaxLayer())
+
+    def add_relu_layer(self):
+        self.nn.append(ReluLayer())
+
+    def add_fc_layer(self, row, column, x=0):
+        self.nn.append(Fc(row, column, x))
+
+    def add_pool_layer(self, size=2, stride=2):
+        self.nn.append(MaxPool(size, stride))
+
     def add_conv_layer(self, size=3, amount=2, pad=1, stride=1):
         self.nn.append(ConvLayer(size, amount, pad, stride))
- 
-    def relu(self, x):
-        return np.maximum(0, x)
 
-    def d_relu(self, x):
-        return np.greater(x, 0).astype(int)
-
-    def softmax(self, z):
-        if not len(z.shape) == 2: z = np.array([z])
-        s = np.array([np.max(z,axis=1)]).T
-        e_z = np.exp(z - s)
-
-        return e_z / np.array([np.sum(e_z, axis=1)]).T
+    def get_one_hot(self, targets, nb_classes):
+        res = np.eye(nb_classes)[np.array(targets).reshape(-1)]
+        return res.reshape(list(targets.shape)+[nb_classes])
 
     def cost(self, x, y):
         a = 10 ** -8
         n = x.shape[0]
         return -np.sum(y * np.log(x + (1 * a))) / n
 
-    def get_one_hot(self, targets, nb_classes):
-        res = np.eye(nb_classes)[np.array(targets).reshape(-1)]
-        return res.reshape(list(targets.shape)+[nb_classes])
+    def forward(self, x):
+        for l in self.nn:
+            x = l.forward(x)
+        return x            
+
 
 def get_indices(X_shape, HF, WF, stride, pad):
     """
@@ -188,5 +238,11 @@ def col2im(dX_col, X_shape, HF, WF, stride, pad):
     elif type(pad) is int:
         return X_padded[pad:-pad, pad:-pad, :, :]
 
-c = MaxPool()
-print(c.forward(np.arange(9).reshape(1, 1, 3, 3)))
+c = CNN()
+c.add_conv_layer(3, 1, 1, 1)
+c.add_relu_layer()
+c.add_pool_layer()
+c.add_fc_layer(9, 5, 1)
+c.add_fc_layer(5, 4)
+c.add_softmax_layer()
+print (c.forward(np.arange(36).reshape((1, 1, 6, 6))))
