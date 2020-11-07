@@ -13,7 +13,7 @@ class SoftmaxLayer():
         return self.mem
     
     def softmax(self, z):
-        if not len(z.shape) == 2: z = np.array([z])
+        if len(z.shape) < 2: z = np.array([z])
         s = np.array([np.max(z,axis=1)]).T
         e_z = np.exp(z - s)
 
