@@ -49,8 +49,8 @@ class Fc():
 
         self.w = np.random.rand(self.row, self.col) * np.sqrt(2./self.col)
         self.b = np.zeros(self.col)
-        if self.prev_shape: self.forward = self.ff
-        else: self.forward = self.f
+        if self.prev_shape: self.forward = self.ff ; self.backprop = self.backk
+        else: self.forward = self.f ; self.backprop = self.back
 
     def f(self, x):
         self.mem = x
@@ -71,14 +71,16 @@ class Fc():
 
         self.mem = dw, db
 
-        return dw, db
+        return de
 
     def backk(self, dx):
         dw = self.mem @ dx
         db = np.sum(dx, axis=0)
+        de = dx @ self.w.T
 
         self.mem = dw, db
 
+        return de.reshape(self.prev_shape)
 
 
 class MaxPool():
@@ -98,11 +100,18 @@ class MaxPool():
 
         xcol = im2col(x, self.ks, self.ks, self.s, self.p) 
         xcol = xcol.reshape((c, xcol.shape[0] // c, -1))
-        mp = np.max(xcol, axis=1)
+        mp = np.ravel(np.argmax(xcol, axis=1))
+
+        self.mem = mp
+        print (xcol , '\n\n', mp)
+        mp  = xcol[0, range(mp.size), mp]
         mp = np.array(np.hsplit(mp, n))
         mp = mp.reshape((n, c, h, w))
 
         return mp
+
+    def backprop(self, dx):
+        pass
 
 class ConvLayer:
     def __init__(self, size=3, amount=2,  pad=1, stride=1):
@@ -262,11 +271,5 @@ def col2im(dX_col, X_shape, HF, WF, stride, pad):
     elif type(pad) is int:
         return X_padded[pad:-pad, pad:-pad, :, :]
 
-c = CNN()
-c.add_conv_layer(3, 1, 1, 1)
-c.add_relu_layer()
-c.add_pool_layer()
-c.add_fc_layer(9, 5, 1)
-c.add_fc_layer(5, 4)
-c.add_softmax_layer()
-print (c.forward(np.arange(36).reshape((1, 1, 6, 6))))
+c = MaxPool()
+print(c.forward(np.arange(9).reshape(1, 1, 3, 3)))
