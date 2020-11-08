@@ -18,6 +18,10 @@ class SoftmaxLayer():
         e_z = np.exp(z - s)
 
         return e_z / np.array([np.sum(e_z, axis=1)]).T
+    
+    def bakprop(self, y):
+        de = y - self.mem
+        return de
 
 class ReluLayer():
     def __init__(self):
@@ -32,6 +36,9 @@ class ReluLayer():
 
     def d_relu(self, x):
         return np.greater(x, 0).astype(int)
+
+    def backprop(self, x):
+        return self.d_relu(self.mem) * x 
 
 class Fc():
     def __init__(self, row, column, prev_shape=0):
@@ -56,6 +63,23 @@ class Fc():
         self.mem = x
         o = x @ self.w + self.b
         return o
+    
+    def back(self, dx):
+        dw = self.mem.T @ dx
+        db = np.sum(dx, axis=0)
+        de = dx @ self.w.T
+
+        self.mem = dw, db
+
+        return dw, db
+
+    def backk(self, dx):
+        dw = self.mem @ dx
+        db = np.sum(dx, axis=0)
+
+        self.mem = dw, db
+
+
 
 class MaxPool():
     def __init__(self, size=2, stride=1, padding=0):
