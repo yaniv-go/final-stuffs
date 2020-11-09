@@ -144,13 +144,25 @@ class ConvLayer:
         o = self.kernels @ xcol + self.bias
         o = o.reshape(c, h, w, n)
         o = o.transpose(3, 0, 1, 2)
-        
-        self.cache = x, xcol, self.kernels
+
+        self.mem = x.shape, xcol
 
         return o
 
     def backprop(self, do):
         db = np.sum(do, axis=(0, 2, 3))
+        db = db.reshape(self.a, -1)
+
+        do = do.transpose(1, 2, 3, 0).reshape(self.a, -1)
+        dw = do @ self.mem[1].T
+        dw = dw.reshape(self.kernels.shape)
+
+        dx = self.kernels.T @ do 
+        dx = col2im(dx, self.mem[0], self.ks, self.ks, self.s, self.p)
+
+        self.mem = dw, db
+
+        return dx
 
 class CNN:
     def __init__(self):
@@ -291,6 +303,5 @@ def col2im(dX_col, X_shape, HF, WF, stride, pad):
     elif type(pad) is int:
         return X_padded[pad:-pad, pad:-pad, :, :]
 
-c = MaxPool()
-print(c.forward(np.arange(16).reshape(1, 1, 4, 4)))
-print (c.backprop((np.arange(4) + 1).reshape((1, 1, 2, 2))))
+c = ConvLayer(3, 2)
+print(c.forward(np.arange(36).reshape(1, 1, 6, 6)))
