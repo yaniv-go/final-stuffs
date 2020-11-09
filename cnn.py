@@ -58,10 +58,13 @@ class Fc():
         return o
 
     def ff(self, x):
-        self.prev_shape = x.shape
-        x = x.flatten()
+        n, c, h, w = x.shape
+        x = x.reshape(n, c * h * w)
         self.mem = x
         o = x @ self.w + self.b
+
+        self.prev_shape = (n, c, h, w)
+
         return o
     
     def back(self, dx):
@@ -84,39 +87,52 @@ class Fc():
 
 
 class MaxPool():
-    def __init__(self, size=2, stride=1, padding=0):
+    def __init__(self, size=2, stride=2, padding=0):
         self.mem = 0
-        self.ks = 2
+        self.ks = size
         self.s = stride
         self.p = padding
     
     def forward(self, x):
-        self.mem = x
-
         n, cp, hp, wp = x.shape
         c = cp
         h = int(((hp + 2 * self.p - self.ks) / self.s) + 1)
         w = int(((wp + 2 * self.p - self.ks) / self.s) + 1)
 
-        xcol = im2col(x, self.ks, self.ks, self.s, self.p) 
-        xcol = xcol.reshape((c, xcol.shape[0] // c, -1))
-        mp = np.ravel(np.argmax(xcol, axis=1))
+        x_reshaped = x.reshape(n * c, 1, hp, wp)
+        x_col = im2col(x_reshaped, self.ks, self.ks, self.s,self.p)
+    
+        max_idx = np.argmax(x_col, axis=0)
 
-        self.mem = mp
-        print (xcol , '\n\n', mp)
-        mp  = xcol[0, range(mp.size), mp]
-        mp = np.array(np.hsplit(mp, n))
-        mp = mp.reshape((n, c, h, w))
+        out = x_col[max_idx, range(max_idx.size)]
+        out = out.reshape(h, w, n, c)
+        out = out.transpose(2, 3, 0, 1)
 
-        return mp
+        self.mem = max_idx, x_col.shape, x.shape
 
-    def backprop(self, dx):
-        pass
+        return out
+
+    def backprop(self, do): 
+        mmax, shape, ishape = self.mem
+
+        dx_col = np.zeros(shape)
+
+        do_f = do.transpose(2, 3, 0, 1).ravel()
+        dx_col[mmax, range(mmax.size)] = do_f
+
+        n, c, h, w = ishape
+
+        dx = col2im(dx_col, (n * c, 1, h, w), self.ks, self.ks, self.s, self.p)
+        dx = dx.reshape(ishape)
+
+        return dx
+
 
 class ConvLayer:
     def __init__(self, size=3, amount=2,  pad=1, stride=1):
         self.ks = size ; self.p = pad ; self.s = stride ; self.a = amount
         self.kernels = np.random.rand(self.a, self.ks * self.ks) * np.sqrt(2./self.ks)
+        self.bias = np.ones(self.a)
 
     def forward(self, x):
         n, cp, hp, wp = x.shape
@@ -125,12 +141,16 @@ class ConvLayer:
         w = int(((wp + 2 * self.p - self.ks) / self.s) + 1)
         
         xcol = im2col(x, self.ks, self.ks, self.s, self.p)
-        o = self.kernels @ xcol
-        o = np.array(np.hsplit(o, n)).reshape((n, c, h, w))
+        o = self.kernels @ xcol + self.bias
+        o = o.reshape(c, h, w, n)
+        o = o.transpose(3, 0, 1, 2)
         
         self.cache = x, xcol, self.kernels
 
         return o
+
+    def backprop(self, do):
+        db = np.sum(do, axis=(0, 2, 3))
 
 class CNN:
     def __init__(self):
@@ -272,4 +292,5 @@ def col2im(dX_col, X_shape, HF, WF, stride, pad):
         return X_padded[pad:-pad, pad:-pad, :, :]
 
 c = MaxPool()
-print(c.forward(np.arange(9).reshape(1, 1, 3, 3)))
+print(c.forward(np.arange(16).reshape(1, 1, 4, 4)))
+print (c.backprop((np.arange(4) + 1).reshape((1, 1, 2, 2))))
