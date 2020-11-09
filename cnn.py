@@ -1,8 +1,10 @@
+from keras.datasets import mnist
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import sklearn.datasets as sk
 import random
+
 
 class SoftmaxLayer():
     def __init__(self):
@@ -19,9 +21,13 @@ class SoftmaxLayer():
 
         return e_z / np.array([np.sum(e_z, axis=1)]).T
     
-    def bakprop(self, y):
+    def backprop(self, y):
         de = y - self.mem
+        self.mem = []
         return de
+
+    def update(self, wd=0):
+        pass
 
 class ReluLayer():
     def __init__(self):
@@ -38,7 +44,12 @@ class ReluLayer():
         return np.greater(x, 0).astype(int)
 
     def backprop(self, x):
-        return self.d_relu(self.mem) * x 
+        y = self.mem
+        self.mem = []
+        return self.d_relu(y) * x 
+    
+    def update(self, wd=0):
+        pass
 
 class Fc():
     def __init__(self, row, column, prev_shape=0):
@@ -61,7 +72,8 @@ class Fc():
         n, c, h, w = x.shape
         x = x.reshape(n, c * h * w)
         self.mem = x
-        o = x @ self.w + self.b
+        o = x @ self.w 
+        o += self.b
 
         self.prev_shape = (n, c, h, w)
 
@@ -77,7 +89,7 @@ class Fc():
         return de
 
     def backk(self, dx):
-        dw = self.mem @ dx
+        dw = self.mem.T @ dx
         db = np.sum(dx, axis=0)
         de = dx @ self.w.T
 
@@ -85,6 +97,9 @@ class Fc():
 
         return de.reshape(self.prev_shape)
 
+    def update(self):
+        self.w -= self.mem[0]
+        self.b -= self.mem[1]
 
 class MaxPool():
     def __init__(self, size=2, stride=2, padding=0):
@@ -125,14 +140,18 @@ class MaxPool():
         dx = col2im(dx_col, (n * c, 1, h, w), self.ks, self.ks, self.s, self.p)
         dx = dx.reshape(ishape)
 
+        self.mem = []
+
         return dx
 
+    def update(self):
+        pass
 
 class ConvLayer:
     def __init__(self, size=3, amount=2,  pad=1, stride=1):
         self.ks = size ; self.p = pad ; self.s = stride ; self.a = amount
         self.kernels = np.random.rand(self.a, self.ks * self.ks) * np.sqrt(2./self.ks)
-        self.bias = np.ones((self.a, 1))
+        self.b = np.zeros((self.a, 1))
 
     def forward(self, x):
         n, cp, hp, wp = x.shape
@@ -141,7 +160,7 @@ class ConvLayer:
         w = int(((wp + 2 * self.p - self.ks) / self.s) + 1)
         
         xcol = im2col(x, self.ks, self.ks, self.s, self.p)
-        o = self.kernels @ xcol + self.bias
+        o = self.kernels @ xcol + self.b
 
         o = o.reshape(c, h, w, n)
         o = o.transpose(3, 0, 1, 2)
@@ -155,8 +174,7 @@ class ConvLayer:
         db = db.reshape(self.a, -1)
 
         do = do.transpose(1, 2, 3, 0).reshape(self.a, -1)
-        dw = do @ self.mem[1].T
-        print(self.mem[1].shape[1])
+        dw = do @ self.mem[1].T 
         dw = dw.reshape(self.kernels.shape) / self.mem[1].shape[1]
 
         dxcol = self.kernels.T @ do 
@@ -166,10 +184,22 @@ class ConvLayer:
 
         return dx
 
+    def update(self):
+        self.kernels -= self.mem[0]
+        self.b -=  self.mem[1]
+
 class CNN:
     def __init__(self):
         self.nn = []
     
+    def get_batches(self, x, y, k):
+        p = np.random.permutation(len(x))
+        x, y = x[p], y[p]
+        y, p = [self.get_one_hot(i, self.nn[-2].col) for i in y], len(x) // k
+
+        xb, yb = np.append(x, x[:k - (len(x) - p * k)], axis=0), np.append(np.array(y), y[:k - (len(y) - p * k)], axis=0)
+        return np.split(xb, p + 1), np.split(yb, p + 1)
+
     def add_softmax_layer(self):
         self.nn.append(SoftmaxLayer())
 
@@ -198,6 +228,53 @@ class CNN:
         for l in self.nn:
             x = l.forward(x)
         return x            
+    
+    def back(self, x, y):
+        do = x - y
+        for l in self.nn[-2::-1]:
+            do = l.backprop(do)
+        
+        return do
+    
+    def sgd(self, epochs, x, y, e0=0.01, t=100, et=0, wd=0.01, k=16):
+        if et == 0: et = e0 / 100
+        rxb, ryb = self.get_batches(x, y, k)
+        xv, yv = [], []
+        j, jv = [], []
+
+        for ep in range(epochs):
+            e = self.get_learning_rate(e0, et, t, ep)
+
+            xb, yb = rxb.copy(), ryb.copy()
+            xv, yv = [], []
+
+            if ((p := len(xb) // 5) >= 1):
+                for i in range(p):
+                    xv.append(xb.pop()) ; yv.append(yb.pop())
+            else: xv = xb.pop() ; yv = yb.pop()
+
+            for n in range(len(xb)):
+                p = np.random.choice(len(xb))
+                xt, yt = xb[p], yb[p]
+
+                o = self.forward(xt)
+                j.append(self.cost(o, yt))
+
+                self.back(o, yt)
+                for l in self.nn:
+                    g = [dx * e for dx in l.mem]
+                    l.mem = g
+                    l.update()
+            
+            for xt, yt in zip(xv, yv):
+                o = self.forward(xt)
+                jv.append(self.cost(o, yt))
+        
+        return j, jv
+
+    def get_learning_rate(self, e0, et, t, n):
+        if (k := n / t) < 1: return e0 * (1 - k) + et * t
+        return et
 
 
 def get_indices(X_shape, HF, WF, stride, pad):
@@ -305,5 +382,22 @@ def col2im(dX_col, X_shape, HF, WF, stride, pad):
     elif type(pad) is int:
         return X_padded[:, :, pad:-pad, pad:-pad]
 
-c = ConvLayer(3, 2)
-print(c.backprop(c.forward(np.arange(36).reshape(1, 1, 6, 6))))
+(tx, ty), (vx, vy) = mnist.load_data()
+tx = tx.astype('float32') / 255.
+print (tx[0].shape)
+tx = tx.reshape(tx.shape[0], 1, tx.shape[1], tx.shape[2])
+
+c = CNN()
+c.add_conv_layer(3, 32, 1, 1)
+c.add_relu_layer()
+c.add_pool_layer()
+c.add_fc_layer(6272, 100, 1)
+c.add_relu_layer()
+c.add_fc_layer(100, 10, 0)
+c.add_softmax_layer()
+
+j, jv = c.sgd(1, tx, ty, e0=1e-4)
+fig, axs = plt.subplots(2)
+axs[0].plot(range(len(j)), j)
+axs[1].plot(range(len(jv)), jv)
+plt.show()
