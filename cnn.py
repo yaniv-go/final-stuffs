@@ -132,7 +132,7 @@ class ConvLayer:
     def __init__(self, size=3, amount=2,  pad=1, stride=1):
         self.ks = size ; self.p = pad ; self.s = stride ; self.a = amount
         self.kernels = np.random.rand(self.a, self.ks * self.ks) * np.sqrt(2./self.ks)
-        self.bias = np.ones(self.a)
+        self.bias = np.ones((self.a, 1))
 
     def forward(self, x):
         n, cp, hp, wp = x.shape
@@ -142,6 +142,7 @@ class ConvLayer:
         
         xcol = im2col(x, self.ks, self.ks, self.s, self.p)
         o = self.kernels @ xcol + self.bias
+
         o = o.reshape(c, h, w, n)
         o = o.transpose(3, 0, 1, 2)
 
@@ -150,7 +151,7 @@ class ConvLayer:
         return o
 
     def backprop(self, do):
-        db = np.sum(do, axis=(0, 2, 3))
+        db = np.sum(do, axis=(0, 2, 3)) / (do.shape[0] * do.shape[2] * do.sahpe[3])
         db = db.reshape(self.a, -1)
 
         do = do.transpose(1, 2, 3, 0).reshape(self.a, -1)
@@ -304,4 +305,4 @@ def col2im(dX_col, X_shape, HF, WF, stride, pad):
         return X_padded[pad:-pad, pad:-pad, :, :]
 
 c = ConvLayer(3, 2)
-print(c.forward(np.arange(36).reshape(1, 1, 6, 6)))
+print(c.backprop(c.forward(np.arange(36).reshape(1, 1, 6, 6))))
