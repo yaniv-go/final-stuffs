@@ -151,15 +151,16 @@ class ConvLayer:
         return o
 
     def backprop(self, do):
-        db = np.sum(do, axis=(0, 2, 3)) / (do.shape[0] * do.shape[2] * do.sahpe[3])
+        db = np.sum(do, axis=(0, 2, 3)) / (do.shape[0] * do.shape[2] * do.shape[3])
         db = db.reshape(self.a, -1)
 
         do = do.transpose(1, 2, 3, 0).reshape(self.a, -1)
         dw = do @ self.mem[1].T
-        dw = dw.reshape(self.kernels.shape)
+        print(self.mem[1].shape[1])
+        dw = dw.reshape(self.kernels.shape) / self.mem[1].shape[1]
 
-        dx = self.kernels.T @ do 
-        dx = col2im(dx, self.mem[0], self.ks, self.ks, self.s, self.p)
+        dxcol = self.kernels.T @ do 
+        dx = col2im(dxcol, self.mem[0], self.ks, self.ks, self.s, self.p)
 
         self.mem = dw, db
 
@@ -302,7 +303,7 @@ def col2im(dX_col, X_shape, HF, WF, stride, pad):
     if pad == 0:
         return X_padded
     elif type(pad) is int:
-        return X_padded[pad:-pad, pad:-pad, :, :]
+        return X_padded[:, :, pad:-pad, pad:-pad]
 
 c = ConvLayer(3, 2)
 print(c.backprop(c.forward(np.arange(36).reshape(1, 1, 6, 6))))
