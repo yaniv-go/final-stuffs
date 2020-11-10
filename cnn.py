@@ -588,3 +588,8 @@ fig, axs = plt.subplots(2)
 axs[0].plot(range(len(j)), j)
 axs[1].plot(range(len(jv)), jv)
 plt.show()
+
+x, y = tx[1], ty[1]
+o = c.forward(x)
+print(np.argmax(x))
+print(y)
