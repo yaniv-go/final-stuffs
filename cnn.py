@@ -583,7 +583,7 @@ c.add_relu_layer()
 c.add_fc_layer(100, 10, 0)
 c.add_softmax_layer()
 
-j, jv = c.adam_momentum(1, tx[:6000], ty[:6000], e=0.008, wd=1e-8, k=32)
+j, jv = c.adam(1, tx[:6000], ty[:6000], e=0.008, wd=1e-8, k=32)
 fig, axs = plt.subplots(2)
 axs[0].plot(range(len(j)), j)
 axs[1].plot(range(len(jv)), jv)
