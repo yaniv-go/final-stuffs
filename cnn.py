@@ -98,8 +98,8 @@ class Fc():
         return de.reshape(self.prev_shape)
 
     def update(self, wd=0):
-        self.w -= (self.mem[0] + wd * self.mem[0])
-        self.b -= (self.mem[1] + wd * self.mem[0])
+        self.w -= (self.mem[0] + wd * self.w)
+        self.b -= (self.mem[1] + wd * self.b)
 
 class MaxPool():
     def __init__(self, size=2, stride=2, padding=0):
@@ -115,7 +115,7 @@ class MaxPool():
         w = int(((wp + 2 * self.p - self.ks) / self.s) + 1)
 
         x_reshaped = x.reshape(n * c, 1, hp, wp)
-        x_col = im2col(x_reshaped, self.ks, self.ks, self.s,self.p)
+        x_col = im2col(x_reshaped, self.ks, self.ks, self.p, self.s)
     
         max_idx = np.argmax(x_col, axis=0)
 
@@ -137,7 +137,7 @@ class MaxPool():
 
         n, c, h, w = ishape
 
-        dx = col2im(dx_col, (n * c, 1, h, w), self.ks, self.ks, self.s, self.p)
+        dx = col2im(dx_col, (n * c, 1, h, w), self.ks, self.ks, self.p, self.s)
         dx = dx.reshape(ishape)
 
         self.mem = []
@@ -148,9 +148,9 @@ class MaxPool():
         pass
 
 class ConvLayer:
-    def __init__(self, size=3, amount=2,  pad=1, stride=1):
-        self.ks = size ; self.p = pad ; self.s = stride ; self.a = amount
-        self.kernels = np.random.rand(self.a, self.ks * self.ks) * np.sqrt(2./self.ks)
+    def __init__(self, size=3, amount=2,  pad=1, stride=1, channels=1):
+        self.ks = size ; self.p = pad ; self.s = stride ; self.a = amount ; self.c = channels
+        self.k = np.random.rand(self.a, self.c, self.ks, self.ks) * np.sqrt(2./self.ks)
         self.b = np.zeros((self.a, 1))
 
     def forward(self, x):
@@ -159,10 +159,12 @@ class ConvLayer:
         h = int(((hp + 2 * self.p - self.ks) / self.s) + 1)
         w = int(((wp + 2 * self.p - self.ks) / self.s) + 1)
         
-        xcol = im2col(x, self.ks, self.ks, self.s, self.p)
-        o = self.kernels @ xcol + self.b
+        k_col = self.k.reshape(self.a, -1)
 
-        o = o.reshape(c, h, w, n)
+        xcol = im2col(x, self.ks, self.ks, self.p, self.s)
+        o = k_col @ xcol + self.b
+
+        o = o.reshape(self.a, h, w, n)
         o = o.transpose(3, 0, 1, 2)
 
         self.mem = x.shape, xcol
@@ -175,22 +177,23 @@ class ConvLayer:
 
         do = do.transpose(1, 2, 3, 0).reshape(self.a, -1)
         dw = do @ self.mem[1].T 
-        dw = dw.reshape(self.kernels.shape) / self.mem[1].shape[1]
+        dw = dw.reshape(self.k.shape) / self.mem[1].shape[1]
 
-        dxcol = self.kernels.T @ do 
-        dx = col2im(dxcol, self.mem[0], self.ks, self.ks, self.s, self.p)
+        dxcol = self.k.T @ do 
+        dx = col2im(dxcol, self.mem[0], self.ks, self.ks, self.p, self.s)
 
         self.mem = dw, db
 
         return dx
 
     def update(self, wd):
-        self.kernels -= (self.mem[0] + wd * self.mem[0])
-        self.b -=  (self.mem[1] + wd * self.mem[1])
+        self.k -= (self.mem[0] + wd * self.k)
+        self.b -=  (self.mem[1] + wd * self.b)
 
 class CNN:
     def __init__(self):
         self.nn = []
+        self.g = {ConvLayer: 2, MaxPool:0, ReluLayer:0, SoftmaxLayer:0, Fc:2}
     
     def get_batches(self, x, y, k):
         p = np.random.permutation(len(x))
@@ -212,8 +215,8 @@ class CNN:
     def add_pool_layer(self, size=2, stride=2):
         self.nn.append(MaxPool(size, stride))
 
-    def add_conv_layer(self, size=3, amount=2, pad=1, stride=1):
-        self.nn.append(ConvLayer(size, amount, pad, stride))
+    def add_conv_layer(self, size=3, amount=2, pad=1, stride=1, channels=1):
+        self.nn.append(ConvLayer(size, amount, pad, stride, channels))
 
     def get_one_hot(self, targets, nb_classes):
         res = np.eye(nb_classes)[np.array(targets).reshape(-1)]
@@ -272,115 +275,96 @@ class CNN:
         
         return j, jv
 
+    def sgd_momentum(self, epochs, x ,y, e0=0.01, t= 100, et=0, wd=0.01, k=16, m=0.9):
+        if et == 0: et = e0 / 100
+        rxb, ryb = self.get_batches(x, y, k)
+        xv, yv = [], []
+        j, jv = [], []
+        vv = [[None] * self.g[x] for x in self.nn]
+
+        print (vv)
+        return
+
+        for ep in range(epochs):
+            e = self.get_learning_rate(e0, et, t, ep)
+
+            xb, yb = rxb.copy(), ryb.copy()
+            xv, yv = [], []
+
+            if ((p := len(xb) // 5) >= 1):
+                for i in range(p):
+                    xv.append(xb.pop()) ; yv.append(yb.pop())
+            else: xv = xb.pop() ; yv = yb.pop()
+
+            for n in range(len(xb)):
+                p = np.random.choice(len(xb))
+                xt, yt = xb[p], yb[p]
+
+                o = self.forward(xt)
+                j.append(self.cost(o, yt))
+
+                self.back(o, yt)
+                for l, v in zip(self.nn, vv):
+                    g = [dx * e for dx in l.mem]
+                    l.mem = g
+                    l.update(wd)
+            
+            for xt, yt in zip(xv, yv):
+                o = self.forward(xt)
+                jv.append(self.cost(o, yt))
+        
+        return j, jv
+
     def get_learning_rate(self, e0, et, t, n):
         if (k := n / t) < 1: return e0 * (1 - k) + et * t
         return et
 
 
-def get_indices(X_shape, HF, WF, stride, pad):
-    """
-        Returns index matrices in order to transform our input image into a matrix.
-        Parameters:
-        -X_shape: Input image shape.
-        -HF: filter height.
-        -WF: filter width.
-        -stride: stride value.
-        -pad: padding value.
-        Returns:
-        -i: matrix of index i.
-        -j: matrix of index j.
-        -d: matrix of index d. 
-            (Use to mark delimitation for each channel
-            during multi-dimensional arrays indexing).
-    """
-    # get input size
-    m, n_C, n_H, n_W = X_shape
+def get_indices(x_shape, field_height, field_width, padding=1, stride=1):
+  # First figure out what the size of the output should be
+  N, C, H, W = x_shape
+  assert (H + 2 * padding - field_height) % stride == 0
+  assert (W + 2 * padding - field_height) % stride == 0
+  out_height = int((H + 2 * padding - field_height) / stride + 1)
+  out_width = int((W + 2 * padding - field_width) / stride + 1)
 
-    # get output size
-    out_h = int((n_H + 2 * pad - HF) / stride) + 1
-    out_w = int((n_W + 2 * pad - WF) / stride) + 1
-  
-    # ----Compute matrix of index i----
+  i0 = np.repeat(np.arange(field_height), field_width)
+  i0 = np.tile(i0, C)
+  i1 = stride * np.repeat(np.arange(out_height), out_width)
+  j0 = np.tile(np.arange(field_width), field_height * C)
+  j1 = stride * np.tile(np.arange(out_width), out_height)
+  i = i0.reshape(-1, 1) + i1.reshape(1, -1)
+  j = j0.reshape(-1, 1) + j1.reshape(1, -1)
 
-    # Level 1 vector.
-    level1 = np.repeat(np.arange(HF), WF)
-    # Duplicate for the other channels.
-    level1 = np.tile(level1, n_C)
-    # Create a vector with an increase by 1 at each level.
-    everyLevels = stride * np.repeat(np.arange(out_h), out_w)
-    # Create matrix of index i at every levels for each channel.
-    i = level1.reshape(-1, 1) + everyLevels.reshape(1, -1)
+  k = np.repeat(np.arange(C), field_height * field_width).reshape(-1, 1)
 
-    # ----Compute matrix of index j----
-    
-    # Slide 1 vector.
-    slide1 = np.tile(np.arange(WF), HF)
-    # Duplicate for the other channels.
-    slide1 = np.tile(slide1, n_C)
-    # Create a vector with an increase by 1 at each slide.
-    everySlides = stride * np.tile(np.arange(out_w), out_h)
-    # Create matrix of index j at every slides for each channel.
-    j = slide1.reshape(-1, 1) + everySlides.reshape(1, -1)
+  return (k, i, j)
 
-    # ----Compute matrix of index d----
+def im2col(x, field_height, field_width, padding=1, stride=1):
+    p = padding
+    x_padded = np.pad(x, ((0, 0), (0, 0), (p, p), (p, p)), mode='constant')
 
-    # This is to mark delimitation for each channel
-    # during multi-dimensional arrays indexing.
-    d = np.repeat(np.arange(n_C), HF * WF).reshape(-1, 1)
+    k, i, j = get_indices(x.shape, field_height, field_width, padding,
+                                stride)
 
-    return i, j, d
-
-def im2col(X, HF, WF, stride, pad):
-    """
-        Transforms our input image into a matrix.
-        Parameters:
-        - X: input image.
-        - HF: filter height.
-        - WF: filter width.
-        - stride: stride value.
-        - pad: padding value.
-        Returns:
-        -cols: output matrix.
-    """
-    # Padding
-    X_padded = np.pad(X, ((0,0), (0,0), (pad, pad), (pad, pad)), mode='constant')
-    i, j, d = get_indices(X.shape, HF, WF, stride, pad)
-    # Multi-dimensional arrays indexing.
-    cols = X_padded[:, d, i, j]
-    cols = np.concatenate(cols, axis=-1)
+    cols = x_padded[:, k, i, j]
+    C = x.shape[1]
+    cols = cols.transpose(1, 2, 0).reshape(field_height * field_width * C  , -1)
     return cols
 
-def col2im(dX_col, X_shape, HF, WF, stride, pad):
-    """
-        Transform our matrix back to the input image.
-        Parameters:
-        - dX_col: matrix with error.
-        - X_shape: input image shape.
-        - HF: filter height.
-        - WF: filter width.
-        - stride: stride value.
-        - pad: padding value.
-        Returns:
-        -x_padded: input image with error.
-    """
-    # Get input size
-    N, D, H, W = X_shape
-    # Add padding if needed.
-    H_padded, W_padded = H + 2 * pad, W + 2 * pad
-    X_padded = np.zeros((N, D, H_padded, W_padded))
-    
-    # Index matrices, necessary to transform our input image into a matrix. 
-    i, j, d = get_indices(X_shape, HF, WF, stride, pad)
-    # Retrieve batch dimension by spliting dX_col N times: (X, Y) => (N, X, Y)
-    dX_col_reshaped = np.array(np.hsplit(dX_col, N))
-    # Reshape our matrix back to image.
-    # slice(None) is used to produce the [::] effect which means "for every elements".
-    np.add.at(X_padded, (slice(None), d, i, j), dX_col_reshaped)
-    # Remove padding from new image if needed.
-    if pad == 0:
-        return X_padded
-    elif type(pad) is int:
-        return X_padded[:, :, pad:-pad, pad:-pad]
+def col2im(cols, x_shape, field_height=3, field_width=3, padding=1,
+                   stride=1):
+    N, C, H, W = x_shape
+    H_padded, W_padded = H + 2 * padding, W + 2 * padding
+    x_padded = np.zeros((N, C, H_padded, W_padded), dtype=cols.dtype)
+    k, i, j = get_indices(x_shape, field_height, field_width, padding,
+                                stride)
+    cols_reshaped = cols.reshape(C * field_height * field_width, -1, N)
+    cols_reshaped = cols_reshaped.transpose(2, 0, 1)
+    np.add.at(x_padded, (slice(None), k, i, j), cols_reshaped)
+    if padding == 0:
+        return x_padded
+    return x_padded[:, :, padding:-padding, padding:-padding]
 
 (tx, ty), (vx, vy) = mnist.load_data()
 tx = tx.astype('float32') / 255.
@@ -388,7 +372,9 @@ print (tx[0].shape)
 tx = tx.reshape(tx.shape[0], 1, tx.shape[1], tx.shape[2])
 
 c = CNN()
-c.add_conv_layer(3, 32, 1, 1)
+c.add_conv_layer(3, 16, 1, 1)
+c.add_relu_layer()
+c.add_conv_layer(3, 32, 1, 1, 16)
 c.add_relu_layer()
 c.add_pool_layer()
 c.add_fc_layer(6272, 100, 1)
@@ -396,7 +382,7 @@ c.add_relu_layer()
 c.add_fc_layer(100, 10, 0)
 c.add_softmax_layer()
 
-j, jv = c.sgd(1, tx[3000], ty, e0=1e-4)
+j, jv = c.sgd_momentum(1, tx[:3000], ty[:3000], e0=0.01)
 fig, axs = plt.subplots(2)
 axs[0].plot(range(len(j)), j)
 axs[1].plot(range(len(jv)), jv)
