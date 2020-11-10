@@ -97,9 +97,9 @@ class Fc():
 
         return de.reshape(self.prev_shape)
 
-    def update(self):
-        self.w -= self.mem[0]
-        self.b -= self.mem[1]
+    def update(self, wd=0):
+        self.w -= (self.mem[0] + wd * self.mem[0])
+        self.b -= (self.mem[1] + wd * self.mem[0])
 
 class MaxPool():
     def __init__(self, size=2, stride=2, padding=0):
@@ -144,7 +144,7 @@ class MaxPool():
 
         return dx
 
-    def update(self):
+    def update(self, wd=0):
         pass
 
 class ConvLayer:
@@ -184,9 +184,9 @@ class ConvLayer:
 
         return dx
 
-    def update(self):
-        self.kernels -= self.mem[0]
-        self.b -=  self.mem[1]
+    def update(self, wd):
+        self.kernels -= (self.mem[0] + wd * self.mem[0])
+        self.b -=  (self.mem[1] + wd * self.mem[1])
 
 class CNN:
     def __init__(self):
@@ -264,7 +264,7 @@ class CNN:
                 for l in self.nn:
                     g = [dx * e for dx in l.mem]
                     l.mem = g
-                    l.update()
+                    l.update(wd)
             
             for xt, yt in zip(xv, yv):
                 o = self.forward(xt)
@@ -396,7 +396,7 @@ c.add_relu_layer()
 c.add_fc_layer(100, 10, 0)
 c.add_softmax_layer()
 
-j, jv = c.sgd(1, tx, ty, e0=1e-4)
+j, jv = c.sgd(1, tx[3000], ty, e0=1e-4)
 fig, axs = plt.subplots(2)
 axs[0].plot(range(len(j)), j)
 axs[1].plot(range(len(jv)), jv)
