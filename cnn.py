@@ -172,12 +172,12 @@ class ConvLayer:
         return o
 
     def backprop(self, do):
-        db = np.sum(do, axis=(0, 2, 3)) / (do.shape[0] * do.shape[2] * do.shape[3])
+        db = np.sum(do, axis=(0, 2, 3))
         db = db.reshape(self.a, -1)
 
         do = do.transpose(1, 2, 3, 0).reshape(self.a, -1)
         dw = do @ self.mem[1].T 
-        dw = dw.reshape(self.k.shape) / self.mem[1].shape[1]
+        dw = dw.reshape(self.k.shape)
 
         dxcol = self.k.T @ do 
         dx = col2im(dxcol, self.mem[0], self.ks, self.ks, self.p, self.s)
@@ -312,6 +312,46 @@ class CNN:
         
         return j, jv
 
+    def sgd_momentum_nesterov(self, epochs, x ,y, e0=0.01, t= 100, et=0, wd=0.01, k=16, m=0.9):
+        if et == 0: et = e0 / 100
+        rxb, ryb = self.get_batches(x, y, k)
+        xv, yv = [], []
+        j, jv = [], []
+        vv = [[0] * self.g[type(x)] for x in self.nn]
+
+        for ep in range(epochs):
+            e = self.get_learning_rate(e0, et, t, ep)
+
+            xb, yb = rxb.copy(), ryb.copy()
+            xv, yv = [], []
+
+            if ((p := len(xb) // 5) >= 1):
+                for i in range(p):
+                    xv.append(xb.pop()) ; yv.append(yb.pop())
+            else: xv = xb.pop() ; yv = yb.pop()
+
+            for n in range(len(xb)):
+                p = np.random.choice(len(xb))
+                xt, yt = xb[p], yb[p]
+
+                o = self.forward(xt)
+                j.append(self.cost(o, yt))
+
+                self.back(o, yt)
+                for l, v in zip(self.nn, vv):
+                    v = [m * (m * c + e * dx) + e * dx for c, dx in zip(v, l.mem)]
+                    l.mem = v
+                    l.update(wd)
+            
+            for xt, yt in zip(xv, yv):
+                o = self.forward(xt)
+                jv.append(self.cost(o, yt))
+        
+        return j, jv
+
+    def rmsprop(self, epochs, x, y, e=0.01, wd=0.01, k=32, d=0.9)
+        
+
     def get_learning_rate(self, e0, et, t, n):
         if (k := n / t) < 1: return e0 * (1 - k) + et * t
         return et
@@ -379,7 +419,7 @@ c.add_relu_layer()
 c.add_fc_layer(100, 10, 0)
 c.add_softmax_layer()
 
-j, jv = c.sgd_momentum(1, tx[:3000], ty[:3000], e0=0.01)
+j, jv = c.rmsprop(1, tx[:6000], ty[:6000], e=0.01, wd=1e-5)
 fig, axs = plt.subplots(2)
 axs[0].plot(range(len(j)), j)
 axs[1].plot(range(len(jv)), jv)
