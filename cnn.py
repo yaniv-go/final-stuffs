@@ -280,10 +280,7 @@ class CNN:
         rxb, ryb = self.get_batches(x, y, k)
         xv, yv = [], []
         j, jv = [], []
-        vv = [[None] * self.g[x] for x in self.nn]
-
-        print (vv)
-        return
+        vv = [[0] * self.g[type(x)] for x in self.nn]
 
         for ep in range(epochs):
             e = self.get_learning_rate(e0, et, t, ep)
@@ -305,8 +302,8 @@ class CNN:
 
                 self.back(o, yt)
                 for l, v in zip(self.nn, vv):
-                    g = [dx * e for dx in l.mem]
-                    l.mem = g
+                    v = [m * c + e * dx for c, dx in zip(v, l.mem)]
+                    l.mem = v
                     l.update(wd)
             
             for xt, yt in zip(xv, yv):
