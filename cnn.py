@@ -4,6 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import sklearn.datasets as sk
 import random
+import copy
 
 
 class SoftmaxLayer():
@@ -267,7 +268,7 @@ class CNN:
                 for l in self.nn:
                     g = [dx * e for dx in l.mem]
                     l.mem = g
-                    l.update(wd)
+                    l.update(wd * e)
             
             for xt, yt in zip(xv, yv):
                 o = self.forward(xt)
@@ -304,7 +305,7 @@ class CNN:
                 for l, v in zip(self.nn, vv):
                     v = [m * c + e * dx for c, dx in zip(v, l.mem)]
                     l.mem = v
-                    l.update(wd)
+                    l.update(wd * e)
             
             for xt, yt in zip(xv, yv):
                 o = self.forward(xt)
@@ -341,7 +342,7 @@ class CNN:
                 for l, v in zip(self.nn, vv):
                     v = [m * (m * c + e * dx) + e * dx for c, dx in zip(v, l.mem)]
                     l.mem = v
-                    l.update(wd)
+                    l.update(wd * e)
             
             for xt, yt in zip(xv, yv):
                 o = self.forward(xt)
@@ -349,8 +350,171 @@ class CNN:
         
         return j, jv
 
-    def rmsprop(self, epochs, x, y, e=0.01, wd=0.01, k=32, d=0.9)
+    def rmsprop(self, epochs, x, y, e=0.01, wd=0.01, k=32, d=0.9):
+        rxb, ryb = self.get_batches(x, y, k)
+        xv, yv = [], []
+        j, jv = [], []
+        rr = [[0] * self.g[type(x)] for x in self.nn]
+
+        for ep in range(epochs):
+            xb, yb = rxb.copy(), ryb.copy()
+            xv, yv = [], []
+
+            if ((p := len(xb) // 5) >= 1):
+                for i in range(p):
+                    xv.append(xb.pop()) ; yv.append(yb.pop())
+            else: xv = xb.pop() ; yv = yb.pop()
+
+            for n in range(len(xb)):
+                p = np.random.choice(len(xb))
+                xt, yt = xb[p], yb[p]
+
+                o = self.forward(xt)
+                j.append(self.cost(o, yt))
+
+                self.back(o, yt)
+                for l, r in zip(self.nn, rr):
+                    r = [e * (1. / np.sqrt(1e-8 + (d * c + (1 - d) * dx * dx))) * dx for c, dx in zip(r, l.mem)]
+                    l.mem = r
+                    l.update(wd * e)
+            
+            for xt, yt in zip(xv, yv):
+                o = self.forward(xt)
+                jv.append(self.cost(o, yt))
         
+        return j, jv
+
+    def rmsprop_momentum(self, epochs, x, y ,e=0.01, wd=0.01, k=32, d=0.9, m=0.9):
+        rxb, ryb = self.get_batches(x, y, k)
+        xv, yv = [], []
+        j, jv = [], []
+        rr = [[0] * self.g[type(x)] for x in self.nn]
+        vv = [[0] * self.g[type(x)] for x in self.nn]
+
+        for ep in range(epochs):
+            xb, yb = rxb.copy(), ryb.copy()
+            xv, yv = [], []
+
+            if ((p := len(xb) // 5) >= 1):
+                for i in range(p):
+                    xv.append(xb.pop()) ; yv.append(yb.pop())
+            else: xv = xb.pop() ; yv = yb.pop()
+
+            for n in range(len(xb)):
+                p = np.random.choice(len(xb))
+                xt, yt = xb[p], yb[p]
+
+                o = self.forward(xt)
+                j.append(self.cost(o, yt))
+
+                self.back(o, yt)
+                for l, r, v in zip(self.nn, rr, vv):
+                    r = [(1. / np.sqrt(1e-8 + (d * c + (1 - d) * dx * dx))) * dx for c, dx in zip(r, l.mem)]
+                    v = [m * c + e * dx for c, dx in zip(v, r)]
+                    l.mem = v
+                    l.update(wd * e)
+            
+            for xt, yt in zip(xv, yv):
+                o = self.forward(xt)
+                jv.append(self.cost(o, yt))
+                
+        return j, jv
+    
+    def adam(self, epochs, x, y, e=0.01, wd=0.01, k=32, m=0.9, d=0.999):
+        rxb, ryb = self.get_batches(x, y, k)
+        xv, yv = [], []
+        j, jv = [], []
+
+        rr = [[0] * self.g[type(x)] for x in self.nn]
+        ss = copy.deepcopy(rr)
+
+        t = 0
+
+        for ep in range(epochs):
+            xb, yb = rxb.copy(), ryb.copy()
+            xv, yv = [], []
+
+            if ((p := len(xb) // 5) >= 1):
+                for i in range(p):
+                    xv.append(xb.pop()) ; yv.append(yb.pop())
+            else: xv = xb.pop() ; yv = yb.pop()
+
+            for n in range(len(xb)):
+                p = np.random.choice(len(xb))
+                xt, yt = xb[p], yb[p]
+
+                o = self.forward(xt)
+                j.append(self.cost(o, yt))
+
+                self.back(o, yt)
+                t += 1
+
+                for l, r, s in zip(self.nn, rr, ss):
+                    s = [m * c + (1 - m) * dx for c, dx in zip(s, l.mem)]
+                    r = [d * c + (1 - d) * dx * dx for c, dx in zip(r, l.mem)]
+                    
+                    x = 1 - np.power(m, t)
+                    sh = [c / x for c in s]
+                    
+                    x = 1 - np.power(d, t)
+                    rh = [c / x for c in r]
+
+                    l.mem = [(y / (np.sqrt(x) + 1e-9)) * e for y, x in zip(sh, rh)] 
+                    l.update(wd * e)
+
+            for xt, yt in zip(xv, yv):
+                o = self.forward(xt)
+                jv.append(self.cost(o, yt))
+                
+        return j, jv
+
+    def adam_momentum(self, epochs, x, y, e=0.01, wd=0.01, k=32, m=0.9, d=0.999):
+        rxb, ryb = self.get_batches(x, y, k)
+        xv, yv = [], []
+        j, jv = [], []
+
+        rr = [[0] * self.g[type(x)] for x in self.nn]
+        ss = copy.deepcopy(rr)
+
+        t = 0
+
+        for ep in range(epochs):
+            xb, yb = rxb.copy(), ryb.copy()
+            xv, yv = [], []
+
+            if ((p := len(xb) // 5) >= 1):
+                for i in range(p):
+                    xv.append(xb.pop()) ; yv.append(yb.pop())
+            else: xv = xb.pop() ; yv = yb.pop()
+
+            for n in range(len(xb)):
+                p = np.random.choice(len(xb))
+                xt, yt = xb[p], yb[p]
+
+                o = self.forward(xt)
+                j.append(self.cost(o, yt))
+
+                self.back(o, yt)
+                t += 1
+
+                for l, r, s in zip(self.nn, rr, ss):
+                    s = [m * c + (1 - m) * dx for c, dx in zip(s, l.mem)]
+                    r = [d * c + (1 - d) * dx * dx for c, dx in zip(r, l.mem)]
+                    
+                    x = 1 - np.power(m, t)
+                    sh = [m * (c / x) + (1-m) * dx / x for c, dx in zip(s, l.mem)]
+                    
+                    x = 1 - np.power(d, t)
+                    rh = [c / x for c in r]
+
+                    l.mem = [(y / (np.sqrt(x) + 1e-9)) * e for y, x in zip(sh, rh)] 
+                    l.update(wd * e)
+
+            for xt, yt in zip(xv, yv):
+                o = self.forward(xt)
+                jv.append(self.cost(o, yt))
+                
+        return j, jv
 
     def get_learning_rate(self, e0, et, t, n):
         if (k := n / t) < 1: return e0 * (1 - k) + et * t
@@ -419,7 +583,7 @@ c.add_relu_layer()
 c.add_fc_layer(100, 10, 0)
 c.add_softmax_layer()
 
-j, jv = c.rmsprop(1, tx[:6000], ty[:6000], e=0.01, wd=1e-5)
+j, jv = c.adam_momentum(1, tx[:6000], ty[:6000], e=0.008, wd=1e-8, k=32)
 fig, axs = plt.subplots(2)
 axs[0].plot(range(len(j)), j)
 axs[1].plot(range(len(jv)), jv)
