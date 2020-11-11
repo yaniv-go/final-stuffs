@@ -240,6 +240,17 @@ class CNN:
         
         return do
     
+    def test(self, x, y):
+        yes, no = 0, 0
+        o = self.forward(x)
+        for ot, yt in zip(np.argmax(o, axis=1), y):
+            if ot == yt: yes += 1
+            else: no += 1
+        
+        print('yes: ', yes)
+        print ('no: ', no)
+        print ('per: ', yes/ x.shape[0])
+
     def sgd(self, epochs, x, y, e0=0.01, t=100, et=0, wd=0.01, k=16):
         if et == 0: et = e0 / 100
         rxb, ryb = self.get_batches(x, y, k)
@@ -583,13 +594,13 @@ c.add_relu_layer()
 c.add_fc_layer(100, 10, 0)
 c.add_softmax_layer()
 
+
 j, jv = c.adam(1, tx[:6000], ty[:6000], e=0.008, wd=1e-8, k=32)
 fig, axs = plt.subplots(2)
 axs[0].plot(range(len(j)), j)
 axs[1].plot(range(len(jv)), jv)
-plt.show()
 
-x, y = tx[1], ty[1]
-o = c.forward(x)
-print(np.argmax(x))
-print(y)
+
+c.test(tx[:30].reshape(30, 1, 28, 28), ty[:30])
+
+plt.show()
