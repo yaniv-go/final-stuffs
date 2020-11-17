@@ -84,3 +84,6 @@ print (input_data.shape)
 
 print (input_data[0:10])
 print (output_data[0:10])
+
+np.save('C:\\Users\\yaniv\\Documents\\GitHub\\final-stuffs\\input-data', input_data)
+np.save('C:\\Users\\yaniv\\Documents\\GitHub\\final-stuffs\\output-data', output_data)

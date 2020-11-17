@@ -1,8 +1,9 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import sklearn.datasets as sk
 import random
+import os
+import affinity
 
 class MLP:
     def __init__(self, layers, batchnorm=0):
@@ -62,7 +63,7 @@ class MLP:
     def get_batches(self, x, y, k):
         p = np.random.permutation(len(x))
         x, y = x[p], y[p]
-        y, p = [self.get_one_hot(i, self.nn['W%d' % (self.d - 1)].shape[1]) for i in y], len(x) // k
+        p = len(x) // k
 
         xb, yb = np.append(x, x[:k - (len(x) - p * k)], axis=0), np.append(np.array(y), y[:k - (len(y) - p * k)], axis=0)
         return np.split(xb, p + 1), np.split(yb, p + 1)
@@ -385,11 +386,10 @@ def l_tuple(layers, i):
         layers[i] = (layers[i], layers[i + 1]) ; return(l_tuple(layers, i + 1))
     except IndexError:
         layers.pop(i) ; return layers
-nn = MLP([20, 22, 20, 16, 10 ,2])
-x, y = sk.make_classification(n_samples=1000, n_features=20, n_informative=2, n_redundant=2
-                           , n_repeated=0, n_classes=2, n_clusters_per_class=2, flip_y=0.01, class_sep=1.0)
 
-j, jv = nn.rmsprop_momentum(100, x, y, e=1e-4, wd=1e-4)
+nn = MLP([78, 120, 100, 90,80 ,58])
+x, y = np.load('C:\\Users\\yaniv\\Documents\\GitHub\\final-stuffs\\input-data.npy'), np.load('C:\\Users\\yaniv\\Documents\\GitHub\\final-stuffs\\output-data.npy') 
+j, jv = nn.rmsprop_momentum(100, x, y, e=1e-8, wd=1e-8)
 fig, axs = plt.subplots(2)
 axs[0].plot(range(len(j)), j)
 axs[1].plot(range(len(jv)), jv)

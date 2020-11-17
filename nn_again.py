@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import sklearn.datasets as sk
 
 
 class MLPBN:
@@ -17,7 +16,6 @@ class MLPBN:
             self.nn['gamma%d' % l] = np.ones(layers[l][1]) ; self.nn['beta%d' % l] = np.zeros(layers[l][1])
     
     def rmsprop_momentum(self, epochs, x, y, e=0.01, wd=1e-4, k=32, d=0.9, m=0.9):
-        rxb, ryb = self.get_batches(x, y, k)
         j, jv = [], []
         r, v = {}, {}
         
@@ -25,7 +23,7 @@ class MLPBN:
             r[i], v[i] = 0, 0
 
         for ep in range(epochs):
-            xb, yb = rxb.copy(), ryb.copy()
+            xb, yb = self.get_batches(x, y, k)
             xv, yv = [], []
 
             if ((p := len(xb) // 5) >= 1):
@@ -283,7 +281,7 @@ class MLPBN:
     def get_batches(self, x, y, k):
         p = np.random.permutation(len(x))
         x, y = x[p], y[p]
-        y, p = [self.get_one_hot(i, self.nn['W%d' % (self.d - 1)].shape[1]) for i in y], len(x) // k
+        p = len(x) // k
 
         xb, yb = np.append(x, x[:k - (len(x) - p * k)], axis=0), np.append(np.array(y), y[:k - (len(y) - p * k)], axis=0)
         return np.split(xb, p + 1), np.split(yb, p + 1)
@@ -314,9 +312,8 @@ class MLPBN:
         res = np.eye(nb_classes)[np.array(targets).reshape(-1)]
         return res.reshape(list(targets.shape)+[nb_classes])
 
-nn = MLPBN([20, 22, 20, 16, 10 ,2])
-x, y = sk.make_classification(n_samples=1000, n_features=20, n_informative=2, n_redundant=2
-                           , n_repeated=0, n_classes=2, n_clusters_per_class=2, flip_y=0.01, class_sep=1.0)
+nn = MLPBN([78, 120, 100, 90,80 ,58])
+x, y = np.load('C:\\Users\\yaniv\\Documents\\GitHub\\final-stuffs\\input-data.npy'), np.load('C:\\Users\\yaniv\\Documents\\GitHub\\final-stuffs\\output-data.npy') 
 
 j, jv = nn.rmsprop_momentum(100, x, y, e=4e-4, wd=0)
 fig, axs = plt.subplots(2)
