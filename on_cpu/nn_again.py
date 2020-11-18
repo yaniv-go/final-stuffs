@@ -313,7 +313,7 @@ class MLPBN:
         return res.reshape(list(targets.shape)+[nb_classes])
 
 nn = MLPBN([78, 120, 100, 90,80 ,58])
-x, y = np.load('C:\\Users\\yaniv\\Documents\\GitHub\\final-stuffs\\input-data.npy'), np.load('C:\\Users\\yaniv\\Documents\\GitHub\\final-stuffs\\output-data.npy') 
+x, y = np.load('C:\\Users\\yaniv\\Documents\\GitHub\\final-stuffs\\taki\\input-data.npy'), np.load('C:\\Users\\yaniv\\Documents\\GitHub\\final-stuffs\\taki\\output-data.npy') 
 
 j, jv = nn.rmsprop_momentum(100, x, y, e=4e-4, wd=0)
 fig, axs = plt.subplots(2)
