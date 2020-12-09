@@ -277,8 +277,7 @@ class CNN:
 
                 self.back(o, yt)
                 for l in self.nn:
-                    g = [dx * e for dx in l.mem]
-                    l.mem = g
+                    l.mem = l.mem * e
                     l.update(wd * e)
             
             for xt, yt in zip(xv, yv):

@@ -111,12 +111,12 @@ class MaxPool():
         h = int(((hp + 2 * self.p - self.ks) / self.s) + 1)
         w = int(((wp + 2 * self.p - self.ks) / self.s) + 1)
 
-        x_reshaped = x.reshape(n * c, 1, hp, wp)\
+        x_reshaped = x.reshape(n * c, 1, hp, wp)
         x_col = im2col(x_reshaped, self.ks, self.ks, self.p, self.s)
 
         max_idx = cp.argmax(x_col, axis=0)
 
-        out = x_col[max_idx, rang(max_idx.size)]
+        out = x_col[max_idx, range(max_idx.size)]
         out = out.reshape(h, w, n, c)
         out = out.transpose(2, 3, 0, 1)
 
@@ -132,10 +132,10 @@ class MaxPool():
         do_f = do.transpose(2, 3, 0, 1).ravel()
         dx_col[maxi, range(maxi.size)] = do_f
 
-        n, c, h, w = ishape
+        n, c, h, w = xshape
 
         dx = col2im(dx_col, (n * c, 1, h, w), self.ks, self.ks, self.p, self.s)
-        dx = dx.reshape(ishape)
+        dx = dx.reshape(xshape)
 
         self.mem = []
 
@@ -154,7 +154,6 @@ class ConvLayer:
     
     def forward(self, x):
         n, cp, hp, wp = x.shape
-        c = self.a
         h = int(((hp + 2 * self.p - self.ks) / self.s) + 1)
         w = int(((wp + 2 * self.p - self.ks) / self.s) + 1)
 
@@ -165,9 +164,74 @@ class ConvLayer:
 
         o = o.reshape(self.a, h, w, n)
         o = o.transpose(3, 0, 1, 2)
+
         self.mem = x.shape, xcol
 
         return o
     
     def backprop(self, do):
-        db = 
+        db = cp.sum(do, axis=(0, 2, 3))
+        db = db.reshape(self.a, -1)
+
+        do = do.transpose(1, 2, 3, 0).reshape(self.a, -1)
+        dw = do @ self.mem[1].T
+        dw = dw.reshpae(self.k.shape)
+
+        dxcol = self.k.T @ do
+        dx = col2im(dxcol. self.mem[0], self.ks, self.ks, self.p, self.s)
+
+        self.mem = dw, db
+
+        return dx
+    
+    def update(self, wd):
+        self.k -= (self.mem[0] + wd * self.k)
+        self.b -= (self.mem[1] + wd * self.b)
+
+
+
+def get_indices(x_shape, field_height, field_width, padding=1, stride=1):
+  # First figure out what the size of the output should be
+  N, C, H, W = x_shape
+  assert (H + 2 * padding - field_height) % stride == 0
+  assert (W + 2 * padding - field_height) % stride == 0
+  out_height = int((H + 2 * padding - field_height) / stride + 1)
+  out_width = int((W + 2 * padding - field_width) / stride + 1)
+
+  i0 = cp.repeat(cp.arange(field_height), field_width)
+  i0 = cp.tile(i0, C)
+  i1 = stride * cp.repeat(np.arange(out_height), out_width)
+  j0 = np.tile(cp.arange(field_width), field_height * C)
+  j1 = stride * np.tile(cp.arange(out_width), out_height)
+  i = i0.reshape(-1, 1) + i1.reshape(1, -1)
+  j = j0.reshape(-1, 1) + j1.reshape(1, -1)
+
+  k = cp.repeat(cp.arange(C), field_height * field_width).reshape(-1, 1)
+
+  return (k, i, j)
+
+def im2col(x, field_height, field_width, padding=1, stride=1):
+    p = padding
+    x_padded = cp.pad(x, ((0, 0), (0, 0), (p, p), (p, p)), mode='constant')
+
+    k, i, j = get_indices(x.shape, field_height, field_width, padding,
+                                stride)
+
+    cols = x_padded[:, k, i, j]
+    C = x.shape[1]
+    cols = cols.transpose(1, 2, 0).reshape(field_height * field_width * C  , -1)
+    return cols
+
+def col2im(cols, x_shape, field_height=3, field_width=3, padding=1,
+                   stride=1):
+    N, C, H, W = x_shape
+    H_padded, W_padded = H + 2 * padding, W + 2 * padding
+    x_padded = cp.zeros((N, C, H_padded, W_padded), dtype=cols.dtype)
+    k, i, j = get_indices(x_shape, field_height, field_width, padding,
+                                stride)
+    cols_reshaped = cols.reshape(C * field_height * field_width, -1, N)
+    cols_reshaped = cols_reshaped.transpose(2, 0, 1)
+    cp.add.at(x_padded, (slice(None), k, i, j), cols_reshaped)
+    if padding == 0:
+        return x_padded
+    return x_padded[:, :, padding:-padding, padding:-padding]
