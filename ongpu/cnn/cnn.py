@@ -1,3 +1,4 @@
+from keras.datasets import mnist
 from layers import *
 import cupy as cp
 import pandas as pd
@@ -19,7 +20,7 @@ class CNN:
             x = cp.concatenate((x, x[:k - a]))
             y = cp.concatenate((y, y[:k - a]))
         
-        return x.reshape(-1, k, x.shape[1]), y.reshape(-1, k, y.shape[1])
+        return x.reshape(-1, k, x.shape[1], x.shape[2], x.shape[3]), y.reshape(-1, k, y.shape[1])
 
     def add_softmax_layer(self):
         self.nn.append(SoftMaxLayer())
@@ -64,5 +65,71 @@ class CNN:
         print ('no: ', no)
         print ('per: ', yes/ x.shape[0])
 
+    def get_learning_rate(self, e0, et, t, n):
+        if (k := n / t) < 1: return e0 * (1 - k) + et * t
+        return et
+
+    def sgd(self, epochs, x, y, xv, yv, e0=0.01, t=100, et=0, wd=0.01, k=16):
+        if et == 0: et = e0 / 100
+        j, jv = [], []
+        best = cp.inf
+
+        for ep in range(epochs):
+            e = self.get_learning_rate(e0, et, t, ep)
+
+            xb, yb = self.get_batches(x, y, k)
+
+            for n in range(xb.shape[0]):
+                p = cp.random.randint(xb.shape[0] - 1)
+
+                xt, yt = xb[p], yb[p]
+
+                o = self.forward(xt)
+                cost = self.cost(o, yt)
+                if cost < best: 
+                    best_model = copy.deepcopy(self.nn)
+                    best = cost
+                j.append(cost)
+
+                self.back(o, yt)
+                for l in self.nn:
+                    l.mem = [e * x for x in l.mem]
+                    l.update(wd * e)
+            
+            validate = self.cost(self.forward(vx), vy)
+            jv.append(cp.sum(validate) / validate.shape[0])
     
-a = CNN()
+        return j, jv
+
+def get_one_hot(targets, nb_classes):
+    res = cp.eye(nb_classes)[cp.array(targets).reshape(-1)]
+    return res.reshape(list(targets.shape)+[nb_classes])
+
+(tx, ty), (vx, vy) = mnist.load_data()
+tx = tx.astype('float32') / 255.
+tx = tx.reshape(tx.shape[0], 1, tx.shape[1], tx.shape[2])
+vx = vx.reshape(vx.shape[0], 1, vx.shape[1], vx.shape[2])
+
+tx = cp.array(tx)
+ty = cp.array(ty)
+vx = cp.array(vx)
+vy = cp.array(vy)
+
+ty = get_one_hot(ty, 10)
+vy = get_one_hot(vy, 10)
+
+c = CNN()
+c.add_conv_layer(3, 16, 1, 1)
+c.add_relu_layer()
+c.add_conv_layer(3, 32, 1, 1, 16)
+c.add_relu_layer()
+c.add_pool_layer()
+c.add_fc_layer(6272, 100, 1)
+c.add_relu_layer()
+c.add_fc_layer(100, 10, 0)
+c.add_softmax_layer()
+
+j, jv = c.sgd(1, tx[:2000], ty[:2000], vx[:2000], vy[:2000], e0=1e-3, wd=1e-8, k=32)
+fig, axs = plt.subplots(2)
+axs[0].plot(range(len(j)), j)
+axs[1].plot(range(len(jv)), jv)

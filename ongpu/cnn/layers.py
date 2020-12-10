@@ -1,7 +1,7 @@
-import matplotlib.pyplot as plt
-import numpy as np
 import cupy as cp
+import cupyx
 import copy
+import sys
 
 class SoftMaxLayer():
     def __init(self):
@@ -106,8 +106,8 @@ class MaxPool():
         self.p = paddding
 
     def forward(self, x):
-        n, cp, hp, wp = x.shape
-        c = cp
+        n, cx, hp, wp = x.shape
+        c = cx
         h = int(((hp + 2 * self.p - self.ks) / self.s) + 1)
         w = int(((wp + 2 * self.p - self.ks) / self.s) + 1)
 
@@ -116,7 +116,7 @@ class MaxPool():
 
         max_idx = cp.argmax(x_col, axis=0)
 
-        out = x_col[max_idx, range(max_idx.size)]
+        out = cp.amax(x_col, 0)
         out = out.reshape(h, w, n, c)
         out = out.transpose(2, 3, 0, 1)
 
@@ -130,7 +130,9 @@ class MaxPool():
         dx_col = cp.zeros(shape)
 
         do_f = do.transpose(2, 3, 0, 1).ravel()
-        dx_col[maxi, range(maxi.size)] = do_f
+
+        for a, b, c in zip(dx_col.T, maxi, do_f):
+            a[b] = c
 
         n, c, h, w = xshape
 
@@ -153,7 +155,7 @@ class ConvLayer:
         self.b = cp.zeros((self.a, 1))
     
     def forward(self, x):
-        n, cp, hp, wp = x.shape
+        n, cx, hp, wp = x.shape
         h = int(((hp + 2 * self.p - self.ks) / self.s) + 1)
         w = int(((wp + 2 * self.p - self.ks) / self.s) + 1)
 
@@ -175,10 +177,10 @@ class ConvLayer:
 
         do = do.transpose(1, 2, 3, 0).reshape(self.a, -1)
         dw = do @ self.mem[1].T
-        dw = dw.reshpae(self.k.shape)
+        dw = dw.reshape(self.k.shape)
 
         dxcol = self.k.T @ do
-        dx = col2im(dxcol. self.mem[0], self.ks, self.ks, self.p, self.s)
+        dx = col2im(dxcol, self.mem[0], self.ks, self.ks, self.p, self.s)
 
         self.mem = dw, db
 
@@ -200,9 +202,9 @@ def get_indices(x_shape, field_height, field_width, padding=1, stride=1):
 
   i0 = cp.repeat(cp.arange(field_height), field_width)
   i0 = cp.tile(i0, C)
-  i1 = stride * cp.repeat(np.arange(out_height), out_width)
-  j0 = np.tile(cp.arange(field_width), field_height * C)
-  j1 = stride * np.tile(cp.arange(out_width), out_height)
+  i1 = stride * cp.repeat(cp.arange(out_height), out_width)
+  j0 = cp.tile(cp.arange(field_width), field_height * C)
+  j1 = stride * cp.tile(cp.arange(out_width), out_height)
   i = i0.reshape(-1, 1) + i1.reshape(1, -1)
   j = j0.reshape(-1, 1) + j1.reshape(1, -1)
 
@@ -231,7 +233,7 @@ def col2im(cols, x_shape, field_height=3, field_width=3, padding=1,
                                 stride)
     cols_reshaped = cols.reshape(C * field_height * field_width, -1, N)
     cols_reshaped = cols_reshaped.transpose(2, 0, 1)
-    cp.add.at(x_padded, (slice(None), k, i, j), cols_reshaped)
+    cupyx.scatter_add(x_padded, (slice(None), k, i, j), cols_reshaped)
     if padding == 0:
         return x_padded
     return x_padded[:, :, padding:-padding, padding:-padding]
