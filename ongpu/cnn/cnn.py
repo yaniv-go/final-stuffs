@@ -97,6 +97,7 @@ class CNN:
                     l.update(wd * e)
             
             xv ,yv = self.get_batches(vx, vy, k)
+            # make validate run on batches
             validate = self.cost(self.forward(vx), vy)
             jv.append(cp.sum(validate) / validate.shape[0])
     
