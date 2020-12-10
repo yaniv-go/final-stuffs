@@ -96,6 +96,7 @@ class CNN:
                     l.mem = [e * x for x in l.mem]
                     l.update(wd * e)
             
+            xv ,yv = self.get_batches(vx, vy, k)
             validate = self.cost(self.forward(vx), vy)
             jv.append(cp.sum(validate) / validate.shape[0])
     
