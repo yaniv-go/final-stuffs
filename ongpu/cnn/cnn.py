@@ -1,6 +1,7 @@
 from keras.datasets import mnist
 from layers import *
 import cupy as cp
+import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import sklearn.datasets as sk
@@ -71,6 +72,7 @@ class CNN:
 
     def sgd(self, epochs, x, y, xv, yv, e0=0.01, t=100, et=0, wd=0.01, k=16):
         if et == 0: et = e0 / 100
+        xv, yv = self.get_batches(xv, yv, k)
         j, jv = [], []
         best = cp.inf
 
@@ -95,11 +97,14 @@ class CNN:
                 for l in self.nn:
                     l.mem = [e * x for x in l.mem]
                     l.update(wd * e)
-            
-            xv ,yv = self.get_batches(vx, vy, k)
+        
             # make validate run on batches
-            validate = self.cost(self.forward(vx), vy)
-            jv.append(cp.sum(validate) / validate.shape[0])
+            validate = [self.cost(self.forward(xv[1]), yv[1]), self.cost(self.forward(xv[0]), yv[0])]
+            for a, b in zip(xv[2:], yv[2:]):
+                c = self.cost(self.forward(a), b)
+                validate.append(c)
+            
+            jv.append(np.sum(validate) / len(validate))
     
         return j, jv
 
@@ -123,15 +128,17 @@ vy = get_one_hot(vy, 10)
 c = CNN()
 c.add_conv_layer(3, 16, 1, 1)
 c.add_relu_layer()
-c.add_conv_layer(3, 32, 1, 1, 16)
+c.add_conv_layer(3, 16, 1, 1, 16)
 c.add_relu_layer()
 c.add_pool_layer()
-c.add_fc_layer(6272, 100, 1)
+c.add_fc_layer(3136, 100, 1)
 c.add_relu_layer()
 c.add_fc_layer(100, 10, 0)
 c.add_softmax_layer()
 
-j, jv = c.sgd(1, tx[:2000], ty[:2000], vx[:2000], vy[:2000], e0=1e-3, wd=1e-8, k=32)
+j, jv = c.sgd(1, tx, ty, vx, vy, e0=1e-3, wd=1e-8, k=1500)
 fig, axs = plt.subplots(2)
 axs[0].plot(range(len(j)), j)
 axs[1].plot(range(len(jv)), jv)
+
+plt.show()
