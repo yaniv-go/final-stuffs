@@ -3,6 +3,9 @@ import cupyx
 import copy
 import sys
 
+class BN_layer():
+    def __init__(self)
+
 class SoftMaxLayer():
     def __init(self):
         self.mem = 0

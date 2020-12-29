@@ -89,7 +89,7 @@ class CNN:
                 o = self.forward(xt)
                 cost = self.cost(o, yt)
                 if cost < best: 
-                    best_model = copy.deepcopy(self.nn)
+                    self.best_model = copy.deepcopy(self.nn)
                     best = cost
                 j.append(cost)
 
@@ -106,6 +106,242 @@ class CNN:
             
             jv.append(np.sum(validate) / len(validate))
     
+        return j, jv
+
+    def sgd_momentum(self, epochs, x, y, xv, yv, e0=0.01, t=100, et=0, wd=0.01, k=16, m=9):
+        if et == 0: et = e0 / 100
+        xv, yv = self.get_batches(xv, yv, k)
+        vv = [[0] * self.g[type(x)] for x in self.nn]
+        j, jv = [], []
+        best = cp.inf
+
+        for ep in range(epochs):
+            e = self.get_learning_rate(e0, et, t, ep)
+
+            xb, yb = self.get_batches(x, y, k)
+
+            for n in range(xb.shape[0]):
+                p = cp.random.randint(xb.shape[0] - 1)
+
+                xt, yt = xb[p], yb[p]
+
+                o = self.forward(xt)
+                cost = self.cost(o, yt)
+                if cost < best: 
+                    self.best_model = copy.deepcopy(self.nn)
+                    best = cost
+                j.append(cost)
+
+                self.back(o, yt)
+                for l, v in zip(self.nn, vv):
+                    v = [m * c + e * dx for c, dx in zip(v, l.mem)]
+                    l.mem = v
+                    l.update(wd * e)
+
+            for xt, yt in zip(xv, yv):
+                o = self.forward(xt)
+                jv.append(self.cost(o, yt))
+
+        return j, jv
+
+    def sgd_momentum_nesterov(self, epochs, x, y, xv, yv, e0=0.01, t=100, et=0, wd=0.01, k=16, m=9):
+        if et == 0: et = e0 / 100
+        xv, yv = self.get_batches(xv, yv, k)
+        vv = [[0] * self.g[type(x)] for x in self.nn]
+        j, jv = [], []
+        best = cp.inf
+
+        for ep in range(epochs):
+            e = self.get_learning_rate(e0, et, t, ep)
+
+            xb, yb = self.get_batches(x, y, k)
+
+            for n in range(xb.shape[0]):
+                p = cp.random.randint(xb.shape[0] - 1)
+
+                xt, yt = xb[p], yb[p]
+
+                o = self.forward(xt)
+                cost = self.cost(o, yt)
+                if cost < best: 
+                    self.best_model = copy.deepcopy(self.nn)
+                    best = cost
+                j.append(cost)
+
+                self.back(o, yt)
+                for l, v in zip(self.nn, vv):
+                    v = [m *  (m * c + e * dx) + e * dx for c, dx in zip(v, l.mem)]
+                    l.mem = v
+                    l.update(wd * e)
+
+            for xt, yt in zip(xv, yv):
+                o = self.forward(xt)
+                jv.append(self.cost(o, yt))
+
+        return j, jv
+
+    def rmsprop(self, epochs, x, y, xv, yv, e=0.01, wd=0.01, k=32, d=0.9):
+        if et == 0: et = e / 100
+        xv, yv = self.get_batches(xv, yv, k)
+        rr = [[0] * self.g[type(x)] for x in self.nn]
+        j, jv = [], []
+        best = cp.inf
+
+        for ep in range(epochs):
+            xb, yb = self.get_batches(x, y, k)
+
+            for n in range(xb.shape[0]):
+                p = cp.random.randint(xb.shape[0] - 1)
+
+                xt, yt = xb[p], yb[p]
+
+                o = self.forward(xt)
+                cost = self.cost(o, yt)
+                if cost < best: 
+                    self.best_model = copy.deepcopy(self.nn)
+                    best = cost
+                j.append(cost)
+
+                self.back(o, yt)
+                for l, r in zip(self.nn, rr):
+                    r = [e * (1. / cp.sqrt(1e-8 + (d * c + (1 - d) * dx * dx))) * dx for c, dx in zip(r, l.mem)]
+                    l.mem = r
+                    l.update(wd * e)
+
+            for xt, yt in zip(xv, yv):
+                o = self.forward(xt)
+                jv.append(self.cost(o, yt))
+
+        return j, jv
+
+    def rmsprop_momentum(self, epochs, x, y, xv, yv, e=0.01, wd=0.01, k=32, d=0.9, m=0.9):
+        if et == 0: et = e / 100
+        xv, yv = self.get_batches(xv, yv, k)
+        rr = [[0] * self.g[type(x)] for x in self.nn]
+        vv = [[0] * self.g[type(x)] for x in self.nn]
+        j, jv = [], []
+        best = cp.inf
+
+        for ep in range(epochs):
+            xb, yb = self.get_batches(x, y, k)
+
+            for n in range(xb.shape[0]):
+                p = cp.random.randint(xb.shape[0] - 1)
+
+                xt, yt = xb[p], yb[p]
+
+                o = self.forward(xt)
+                cost = self.cost(o, yt)
+                if cost < best: 
+                    self.best_model = copy.deepcopy(self.nn)
+                    best = cost
+                j.append(cost)
+
+                self.back(o, yt)
+                for l, r in zip(self.nn, rr):
+                    r = [e * (1. / cp.sqrt(1e-8 + (d * c + (1 - d) * dx * dx))) * dx for c, dx in zip(r, l.mem)]
+                    v = [m * c + e * dx for c, dx in zip(v, r)]
+                    l.mem = v
+                    l.update(wd * e)
+
+            for xt, yt in zip(xv, yv):
+                o = self.forward(xt)
+                jv.append(self.cost(o, yt))
+
+        return j, jv
+
+    def adam(self, epochs, x, y, xv, yv, e=0.01, wd=0.01, k=32, d=0.999, m=0.9):
+        if et == 0: et = e / 100
+        xv, yv = self.get_batches(xv, yv, k)
+        rr = [[0] * self.g[type(x)] for x in self.nn]
+        ss = [[0] * self.g[type(x)] for x in self.nn]
+        j, jv = [], []
+        best = cp.inf
+
+        t = 0
+
+        for ep in range(epochs):
+            xb, yb = self.get_batches(x, y, k)
+
+            for n in range(xb.shape[0]):
+                p = cp.random.randint(xb.shape[0] - 1)
+
+                xt, yt = xb[p], yb[p]
+
+                o = self.forward(xt)
+                cost = self.cost(o, yt)
+                if cost < best: 
+                    self.best_model = copy.deepcopy(self.nn)
+                    best = cost
+                j.append(cost)
+
+                self.back(o, yt)
+                t += 1
+
+                for l, r in zip(self.nn, rr):
+                    s = [m * c + (1 - m) * dx for c, dx in zip(s, l.mem)]
+                    r = [d * c + (1 - d) * dx * dx for c, dx in zip(r, l.mem)]
+                    
+                    x = 1 - cp.power(m, t)
+                    sh = [c / x for c in s]
+                    
+                    x = 1 - cp.power(d, t)
+                    rh = [c / x for c in r]
+
+                    l.mem = [(y / (cp.sqrt(x) + 1e-9)) * e for y, x in zip(sh, rh)] 
+                    l.update(wd * e)
+
+            for xt, yt in zip(xv, yv):
+                o = self.forward(xt)
+                jv.append(self.cost(o, yt))
+
+        return j, jv
+
+    def adam_momentum(self, epochs, x, y, xv, yv, e=0.01, wd=0.01, k=32, d=0.999, m=0.9):
+        if et == 0: et = e / 100
+        xv, yv = self.get_batches(xv, yv, k)
+        rr = [[0] * self.g[type(x)] for x in self.nn]
+        ss = [[0] * self.g[type(x)] for x in self.nn]
+        j, jv = [], []
+        best = cp.inf
+
+        t = 0
+
+        for ep in range(epochs):
+            xb, yb = self.get_batches(x, y, k)
+
+            for n in range(xb.shape[0]):
+                p = cp.random.randint(xb.shape[0] - 1)
+
+                xt, yt = xb[p], yb[p]
+
+                o = self.forward(xt)
+                cost = self.cost(o, yt)
+                if cost < best: 
+                    self.best_model = copy.deepcopy(self.nn)
+                    best = cost
+                j.append(cost)
+
+                self.back(o, yt)
+                t += 1
+
+                for l, r in zip(self.nn, rr):
+                    s = [m * c + (1 - m) * dx for c, dx in zip(s, l.mem)]
+                    r = [d * c + (1 - d) * dx * dx for c, dx in zip(r, l.mem)]
+                    
+                    x = 1 - cp.power(m, t)
+                    sh = [m * (c / x) + (1-m) * dx / x for c, dx in zip(s, l.mem)]
+                    
+                    x = 1 - cp.power(d, t)
+                    rh = [c / x for c in r]
+
+                    l.mem = [(y / (cp.sqrt(x) + 1e-9)) * e for y, x in zip(sh, rh)] 
+                    l.update(wd * e)
+
+            for xt, yt in zip(xv, yv):
+                o = self.forward(xt)
+                jv.append(self.cost(o, yt))
+
         return j, jv
 
 def get_one_hot(targets, nb_classes):
