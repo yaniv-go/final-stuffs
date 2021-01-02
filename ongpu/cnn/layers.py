@@ -4,7 +4,8 @@ import copy
 import sys
 
 class BN_layer():
-    def __init__(self)
+    def __init__(self):
+        pass
 
 class SoftMaxLayer():
     def __init(self):
