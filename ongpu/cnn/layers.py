@@ -4,8 +4,67 @@ import copy
 import sys
 
 class BN_layer():
-    def __init__(self):
+    def __init__(self, exp_shape):
+        assert isinstance(exp_shape, tuple)
+        if len(exp_shape) == 2: 
+            self.forward = self.forward_prev_fc
+            self.back = self.back_prev_fc
+
+            self.gamma = cp.ones(exp_shape[1])
+            self.beta = cp.zeros(exp_shape[1])
+        elif len(exp_shape) == 4: 
+            self.forward = self.forward_prev_conv
+            self.back = self.back_prev_conv
+
+            n, c, w, h = exp_shape
+            self.gamma = cp.ones((c, 1, w * h))
+            self.beta = cp.zeros((c, 1, w * h))
+        else:
+            raise Exception("incorrect exp_shape input")
+
+    def forward_prev_conv(self, x):
+        n, c, w, h = x.shape
+
+        # normalize x
+        x_reshaped = x.transpose(1, 0, 2, 3).reshape(c, n, w * h)
+        mean = ((cp.sum(x_reshaped, axis=1)) / n).reshape(c, 1, w * h)
+        var = (cp.sum((x_reshaped - mean) ** 2, axis=1)) / n
+        x_hat = (x_reshaped - mean) / (cp.sqrt(var + 1e-10))
+
+        y = self.gamma * x_hat + self.beta      
+
+        self.mem = x_reshaped, mean, var, x_hat
+
+        return y.transpose(1, 0, 2).reshape(n, c, w, h)
+
+    def forward_prev_fc(self, x):
         pass
+
+    def back_prev_conv(self, do):
+        x_reshaped, mean, var, x_hat = self.mem
+        n, c, w, h = do.shape
+        do = do.transpose(1, 0, 2, 3).reshape(c, n, w * h)
+
+        var = cp.sqrt(var + 1e-9)
+        xminusm = x_reshaped - mean
+
+        dx_hat = do * self.gamma
+        dvar = dx_hat * xminusm * (var ** -3.) / -2.
+        dmean = (dx_hat * (-1/ var)) + dvar * -2 * xminusm 
+        dx_reshaped = (dx_hat / var) +  dvar * 2 * xminusm / n + dmean / n
+        dgamma = cp.sum(do * x_hat, axis=1).reshape(c, 1, h * w)
+        dbeta = cp.sum(do, axis=1).reshape(c, 1, h * w)
+
+        self.mem = dgamma, dbeta
+
+        return dx_reshaped.transpose(1, 0, 2).reshape(n, c, w, h)
+
+    def back_prev_fc(self, x):
+        pass
+
+    def update(self, wd=0):
+        pass
+        
 
 class SoftMaxLayer():
     def __init(self):
