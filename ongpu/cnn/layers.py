@@ -6,17 +6,17 @@ import sys
 class BN_layer():
     def __init__(self, exp_shape):
         assert isinstance(exp_shape, tuple)
-        if len(exp_shape) == 2: 
+        if len(exp_shape) == 1: 
             self.forward = self.forward_prev_fc
-            self.back = self.back_prev_fc
+            self.backprop = self.back_prev_fc
 
-            self.gamma = cp.ones(exp_shape[1])
-            self.beta = cp.zeros(exp_shape[1])
-        elif len(exp_shape) == 4: 
+            self.gamma = cp.ones(exp_shape[0])
+            self.beta = cp.zeros(exp_shape[0])
+        elif len(exp_shape) == 3: 
             self.forward = self.forward_prev_conv
-            self.back = self.back_prev_conv
+            self.backprop = self.back_prev_conv
 
-            n, c, w, h = exp_shape
+            c, w, h = exp_shape
             self.gamma = cp.ones((c, 1, w * h))
             self.beta = cp.zeros((c, 1, w * h))
         else:
@@ -28,7 +28,7 @@ class BN_layer():
         # normalize x
         x_reshaped = x.transpose(1, 0, 2, 3).reshape(c, n, w * h)
         mean = ((cp.sum(x_reshaped, axis=1)) / n).reshape(c, 1, w * h)
-        var = (cp.sum((x_reshaped - mean) ** 2, axis=1)) / n
+        var = ((cp.sum((x_reshaped - mean) ** 2, axis=1)) / n).reshape(c, 1, w * h)
         x_hat = (x_reshaped - mean) / (cp.sqrt(var + 1e-10))
 
         y = self.gamma * x_hat + self.beta      
@@ -107,6 +107,7 @@ class SoftMaxLayer():
 
     def backprop(self, y):
         de = y - self.mem
+        self.mem = []
         return de
 
     def update(self, wd=0):
@@ -128,6 +129,8 @@ class ReluLayer():
     
     def backprop(self, x):
         y = self.mem
+        self.mem = []
+
         return self.d_relu(y) * x
     
     def update(self, wd=0):
@@ -213,13 +216,14 @@ class MaxPool():
 
         do_f = do.transpose(2, 3, 0, 1).ravel()
 
-        for a, b, c in zip(dx_col.T, maxi, do_f):
-            a[b] = c
+        dx_col[maxi, cp.arange(maxi.size)] = do_f
 
         n, c, h, w = xshape
 
         dx = col2im(dx_col, (n * c, 1, h, w), self.ks, self.ks, self.p, self.s)
         dx = dx.reshape(xshape)
+
+        self.mem = []
 
         return dx
 
