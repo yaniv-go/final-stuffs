@@ -101,9 +101,9 @@ class SoftMaxLayer():
     def softmax(self, z):
         if  z.ndim < 2: z = cp.array([z])
         s = cp.max(z, axis=1).T
-        e_z = cp.exp(z - s)
+        e_z = cp.exp(z - s.reshape(-1, 1))
 
-        return e_z / cp.sum(e_z, axis=1).T
+        return e_z / cp.sum(e_z, axis=1).T.reshape(-1, 1)
 
     def backprop(self, y):
         de = y - self.mem
@@ -220,8 +220,6 @@ class MaxPool():
 
         dx = col2im(dx_col, (n * c, 1, h, w), self.ks, self.ks, self.p, self.s)
         dx = dx.reshape(xshape)
-
-        self.mem = []
 
         return dx
 

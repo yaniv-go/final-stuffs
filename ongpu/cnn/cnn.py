@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 import sklearn.datasets as sk
 import random
 import copy
+import cProfile
+import os
 
 class CNN:
     def __init__(self):
@@ -348,6 +350,8 @@ def get_one_hot(targets, nb_classes):
     res = cp.eye(nb_classes)[cp.array(targets).reshape(-1)]
     return res.reshape(list(targets.shape)+[nb_classes])
 
+os.environ['NUMPY_EXPERIMENTAL_ARRAY_FUNCTION'] = '1'
+
 (tx, ty), (vx, vy) = mnist.load_data()
 tx = tx.astype('float32') / 255.
 tx = tx.reshape(tx.shape[0], 1, tx.shape[1], tx.shape[2])
@@ -364,17 +368,21 @@ vy = get_one_hot(vy, 10)
 c = CNN()
 c.add_conv_layer(3, 16, 1, 1)
 c.add_relu_layer()
+c.add_pool_layer()
 c.add_conv_layer(3, 16, 1, 1, 16)
 c.add_relu_layer()
 c.add_pool_layer()
-c.add_fc_layer(3136, 100, 1)
+c.add_fc_layer(784, 100, 1)
 c.add_relu_layer()
 c.add_fc_layer(100, 10, 0)
 c.add_softmax_layer()
 
+cProfile.run('c.sgd(1, tx, ty, vx, vy, e0=1e-3, wd=1e-8, k=2500)')
+"""
 j, jv = c.sgd(1, tx, ty, vx, vy, e0=1e-3, wd=1e-8, k=1500)
 fig, axs = plt.subplots(2)
 axs[0].plot(range(len(j)), j)
 axs[1].plot(range(len(jv)), jv)
 
 plt.show()
+"""
