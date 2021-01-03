@@ -38,7 +38,16 @@ class BN_layer():
         return y.transpose(1, 0, 2).reshape(n, c, w, h)
 
     def forward_prev_fc(self, x):
-        pass
+        n = x.shape[0]
+        mean = cp.sum(x, axis=0) / n
+        var = cp.sum((x - mean) ** 2, axis=0) / n
+        x_hat = (x - mean) / cp.sqrt(var + 1e-10)
+
+        y = self.gamma * x_hat + self.beta
+
+        self.mem = x, mean, var, x_hat
+
+        return y
 
     def back_prev_conv(self, do):
         x_reshaped, mean, var, x_hat = self.mem
@@ -59,13 +68,28 @@ class BN_layer():
 
         return dx_reshaped.transpose(1, 0, 2).reshape(n, c, w, h)
 
-    def back_prev_fc(self, x):
-        pass
+    def back_prev_fc(self, do):
+        x, mean, var, x_hat = self.mem
+        n = do.shape[0]
+
+        var = cp.sqrt(var + 1e-9)
+        xminusm = x - mean
+
+        dx_hat = do * self.gamma
+        dvar = dx_hat * xminusm * (var ** -3.) / -2.
+        dmean = (dx_hat * (-1/ var)) + dvar * -2 * xminusm 
+        dx = (dx_hat / var) +  dvar * 2 * xminusm / n + dmean / n
+        dgamma = cp.sum(do * x_hat, axis=0)
+        dbeta = cp.sum(do, axis=0)
+
+        self.mem = dgamma, dbeta
+
+        return dx
 
     def update(self, wd=0):
-        pass
+        self.gamma -= (wd * self.gamma + self.mem[0])
+        self.beta -= (wd * self.beta + self.mem[1])
         
-
 class SoftMaxLayer():
     def __init(self):
         self.mem = 0
@@ -75,15 +99,14 @@ class SoftMaxLayer():
         return self.mem
 
     def softmax(self, z):
-        if len(z.shape) < 2: z = cp.array([z])
-        s = cp.array([cp.max(z, axis=1)]).T
+        if  z.ndim < 2: z = cp.array([z])
+        s = cp.max(z, axis=1).T
         e_z = cp.exp(z - s)
 
-        return e_z / cp.array([cp.sum(e_z, axis=1)]).T
+        return e_z / cp.sum(e_z, axis=1).T
 
     def backprop(self, y):
         de = y - self.mem
-        self.mem - []
         return de
 
     def update(self, wd=0):
@@ -105,7 +128,6 @@ class ReluLayer():
     
     def backprop(self, x):
         y = self.mem
-        self.mem = []
         return self.d_relu(y) * x
     
     def update(self, wd=0):
@@ -114,7 +136,6 @@ class ReluLayer():
 class Fc():
     def __init__(self, row, column, prev_shape=0):
         self.prev_shape = prev_shape
-        self.mem = 0
         self.row = row
         self.col = column
 
@@ -163,14 +184,12 @@ class Fc():
 
 class MaxPool():
     def __init__(self, size=2, stride=2, paddding=0):
-        self.mem = 0 
         self.ks = size
         self.s = stride
         self.p = paddding
 
     def forward(self, x):
-        n, cx, hp, wp = x.shape
-        c = cx
+        n, c, hp, wp = x.shape
         h = int(((hp + 2 * self.p - self.ks) / self.s) + 1)
         w = int(((wp + 2 * self.p - self.ks) / self.s) + 1)
 
@@ -252,8 +271,6 @@ class ConvLayer:
     def update(self, wd):
         self.k -= (self.mem[0] + wd * self.k)
         self.b -= (self.mem[1] + wd * self.b)
-
-
 
 def get_indices(x_shape, field_height, field_width, padding=1, stride=1):
   # First figure out what the size of the output should be
