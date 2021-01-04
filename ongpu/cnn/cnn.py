@@ -19,9 +19,9 @@ class CNN:
         p = cp.random.permutation(x.shape[0])
         x, y = x[p], y[p]
 
-        if not (a:= x.shape[0] % k) == 0:
-            x = cp.concatenate((x, x[:k - a]))
-            y = cp.concatenate((y, y[:k - a]))
+        if not x.shape[0] % k == 0:
+            x = cp.concatenate((x, x[:k - x.shape[0] % k]))
+            y = cp.concatenate((y, y[:k - x.shape[0] % k]))
         
         return x.reshape(-1, k, x.shape[1], x.shape[2], x.shape[3]), y.reshape(-1, k, y.shape[1])
 
@@ -72,7 +72,7 @@ class CNN:
         print ('per: ', yes/ x.shape[0])
 
     def get_learning_rate(self, e0, et, t, n):
-        if (k := n / t) < 1: return e0 * (1 - k) + et * t
+        if (n / t) < 1: return e0 * (1 - n / t) + et * t
         return et
 
     def sgd(self, epochs, x, y, xv, yv, e0=0.01, t=100, et=0, wd=0.01, k=16):
@@ -383,9 +383,9 @@ c.add_softmax_layer()
 
 #cProfile.run('c.sgd(1, tx, ty, vx, vy, e0=1e-3, wd=1e-8, k=2500)')
 
-j, jv = c.adam_momentum(100, tx, ty, vx, vy, e=1e-1, wd=0, k=1000)
+j, jv = c.adam_momentum(50, tx, ty, vx, vy, e=3e-2, wd=0, k=1000)
 fig, axs = plt.subplots(2)
 axs[0].plot(range(len(j)), j)
 axs[1].plot(range(len(jv)), jv)
 
-plt.savefig('graph.png')
+plt.show()
