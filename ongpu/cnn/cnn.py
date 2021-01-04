@@ -353,18 +353,22 @@ def get_one_hot(targets, nb_classes):
     res = cp.eye(nb_classes)[cp.array(targets).reshape(-1)]
     return res.reshape(list(targets.shape)+[nb_classes])
 
-(tx, ty), (vx, vy) = mnist.load_data()
-tx = tx.astype('float32') / 255.
-tx = tx.reshape(tx.shape[0], 1, tx.shape[1], tx.shape[2])
-vx = vx.reshape(vx.shape[0], 1, vx.shape[1], vx.shape[2])
+def get_mnist():
+        
+    (tx, ty), (vx, vy) = mnist.load_data()
+    tx = tx.astype('float32') / 255.
+    tx = tx.reshape(tx.shape[0], 1, tx.shape[1], tx.shape[2])
+    vx = vx.reshape(vx.shape[0], 1, vx.shape[1], vx.shape[2])
 
-tx = cp.array(tx)
-ty = cp.array(ty)
-vx = cp.array(vx)
-vy = cp.array(vy)
+    tx = cp.array(tx)
+    ty = cp.array(ty)
+    vx = cp.array(vx)
+    vy = cp.array(vy)
 
-ty = get_one_hot(ty, 10)
-vy = get_one_hot(vy, 10)
+    ty = get_one_hot(ty, 10)
+    vy = get_one_hot(vy, 10)
+
+    return tx, ty, vx, vy
 
 c = CNN()
 c.add_conv_layer(3, 16, 1, 1)
