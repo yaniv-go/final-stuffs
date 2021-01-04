@@ -383,7 +383,7 @@ c.add_softmax_layer()
 
 #cProfile.run('c.sgd(1, tx, ty, vx, vy, e0=1e-3, wd=1e-8, k=2500)')
 
-j, jv = c.adam_momentum(50, tx, ty, vx, vy, e=3e-2, wd=0, k=1000)
+cProfile.run('j, jv = c.adam_momentum(100, tx, ty, vx, vy, e=3e-3, wd=0, k=1000)')
 fig, axs = plt.subplots(2)
 axs[0].plot(range(len(j)), j)
 axs[1].plot(range(len(jv)), jv)
