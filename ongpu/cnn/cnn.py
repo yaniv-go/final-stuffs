@@ -370,6 +370,8 @@ def get_mnist():
 
     return tx, ty, vx, vy
 
+tx, ty, vx, vy = get_mnist()
+
 c = CNN()
 c.add_conv_layer(3, 16, 1, 1)
 c.add_bn_layer((16, 28, 28))
