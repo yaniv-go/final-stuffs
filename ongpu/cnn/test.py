@@ -39,3 +39,4 @@ y = images.reshape(-1, 16)
 
 print (x[0])
 print (y[0])
+""" redo photos into .npy you dumb fuck """
