@@ -4,20 +4,38 @@ import numpy as np
 from layers import *
 from PIL import Image
 import pandas as pd
+import pickle
+import cProfile
 import os
 
-resized_dataset_path = 'C:\\Users\\yaniv\\Documents\\datasets\\dog-breed\\images-resized'
+def get_batches(x, y, k): 
+    p = np.random.permutation(x.shape[0])
+    x, y = x[p], y[p]
 
-pictures = []
-labels = []
-for folder in os.listdir(resized_dataset_path):
-    breed_path = resized_dataset_path + '\\' + folder
-    for photo in os.listdir(breed_path):
-        image = Image.open(breed_path + '\\' + photo)
-        pic = cp.asarray(image).transpose(2, 0, 1)
-        pictures.append(pic)
-        labels.append(folder)
-        print (labels[5:])
-        print (pictures)
-        break
-    break
+    print (x[0])
+    print(y[0])
+
+    n = x.shape[0] % k
+    n = k - n
+    x = np.append(x, x[:n], axis=0)
+    y = np.append(y, y[:n], axis=0)
+
+    return x, y
+
+f = 'C:\\Users\\yaniv\\Documents\\datasets\\dog-breed\\images.npy'
+images = np.load(f)
+labels = np.load('C:\\Users\\yaniv\\Documents\\datasets\\dog-breed\\image-labels.npy')
+
+input(4)
+
+print(images.shape)
+print(labels.shape)
+images, labels = get_batches(images, labels, 16)
+print(images.shape)
+print(labels.shape)
+
+x = images.reshape(-1, 16, 3, 224, 224)
+y = images.reshape(-1, 16)
+
+print (x[0])
+print (y[0])

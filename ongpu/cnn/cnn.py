@@ -8,7 +8,7 @@ import sklearn.datasets as sk
 import random
 import copy
 import cProfile
-import os
+import sys
 
 class CNN:
     def __init__(self):
@@ -370,7 +370,21 @@ def get_mnist():
 
     return tx, ty, vx, vy
 
-tx, ty, vx, vy = get_mnist()
+
+x, y = cp.load('C:\\Users\\yaniv\\Documents\\datasets\\dog-breed\\images.npy'), cp.load('C:\\Users\\yaniv\\Documents\\datasets\\dog-breed\\image-labels.npy')
+
+cp.random.seed(101)
+
+p = cp.random.permutation(x.shape[0])
+x, y = x[p], y[p]
+p = cp.random.permutation(x.shape[0])
+x, y = x[p], y[p]
+
+
+
+input('me')
+
+sys.exit()
 
 c = CNN()
 c.add_conv_layer(3, 16, 1, 1)
