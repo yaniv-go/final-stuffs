@@ -6,12 +6,18 @@ from PIL import Image
 import pandas as pd
 import os
 
-dataset_path = 'C:\\Users\\yaniv\\Documents\\datasets\\dog-breed-identification'
+resized_dataset_path = 'C:\\Users\\yaniv\\Documents\\datasets\\dog-breed\\images-resized'
 
-
-csv = pd.read_csv(dataset_path + '\\labels.csv')
-
-for filename in os.listdir(dataset_path + '\\test'):
-    image = Image.open(dataset_path + '\\test\\' + filename)
-    new_image = image.resize((224, 224))
-    new_image.save(dataset_path + '\\edited-test\\' + filename)
+pictures = []
+labels = []
+for folder in os.listdir(resized_dataset_path):
+    breed_path = resized_dataset_path + '\\' + folder
+    for photo in os.listdir(breed_path):
+        image = Image.open(breed_path + '\\' + photo)
+        pic = cp.asarray(image).transpose(2, 0, 1)
+        pictures.append(pic)
+        labels.append(folder)
+        print (labels[5:])
+        print (pictures)
+        break
+    break
