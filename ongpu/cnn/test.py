@@ -22,21 +22,32 @@ def get_batches(x, y, k):
 
     return x, y
 
-f = 'C:\\Users\\yaniv\\Documents\\datasets\\dog-breed\\images.npy'
-images = np.load(f)
-labels = np.load('C:\\Users\\yaniv\\Documents\\datasets\\dog-breed\\image-labels.npy')
+def get_image_arrays(path, breeds):
+    images_path = dataset_path + 'images-resized\\'
+    
+    images = []
+    labels = []
+    for folder in os.listdir(images_path):
+        breed = folder[10:]
+        breed_path = images_path + folder + '\\'
+        for filename in os.listdir(breed_path):
+            image_path = breed_path + filename
+            image = Image.open(image_path).convert('RGB')
+            images.append(cp.array(image))
+            labels.append(breeds[breed])
 
-input(4)
+    return images, labels
 
-print(images.shape)
-print(labels.shape)
-images, labels = get_batches(images, labels, 16)
-print(images.shape)
-print(labels.shape)
 
-x = images.reshape(-1, 16, 3, 224, 224)
-y = images.reshape(-1, 16)
+dataset_path = "C:\\Users\\yaniv\\Documents\\datasets\\dog-breed\\"
 
-print (x[0])
-print (y[0])
-""" redo photos into .npy you dumb fuck """
+with open(dataset_path + 'breed-dict.pickle', 'rb') as f:
+    breeds = pickle.load(f)
+
+images = cp.load(dataset_path + "images-and-extra.npy")
+labels = cp.load(dataset_path + "labels-and-extra.npy")
+
+print (images.shape)
+print (labels.shape)
+        
+
