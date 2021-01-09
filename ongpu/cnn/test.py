@@ -44,10 +44,20 @@ dataset_path = "C:\\Users\\yaniv\\Documents\\datasets\\dog-breed\\"
 with open(dataset_path + 'breed-dict.pickle', 'rb') as f:
     breeds = pickle.load(f)
 
-images = cp.load(dataset_path + "images-and-extra.npy")
-labels = cp.load(dataset_path + "labels-and-extra.npy")
+images = cp.load(dataset_path + 'base-images.npy')
+labels = cp.load(dataset_path + 'labels.npy')
 
-print (images.shape)
-print (labels.shape)
+for i in range(50):    
+    p = cp.random.permutation(labels.shape[0])
+    images = images[p]
+    labels = labels[p]
+
+images_and_extra = cp.concatenate((images, images[:156]), axis=0)
+labels_and_extra = cp.concatenate((labels, labels[:156]), axis=0)
+
+cp.save(dataset_path + "images-and-extra.npy", images_and_extra)
+cp.save(dataset_path + "labels-and-extra", labels_and_extra)
+
+
         
 
