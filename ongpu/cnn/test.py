@@ -38,25 +38,29 @@ def get_image_arrays(path, breeds):
 
     return images, labels
 
+def get_ready_batches(dataset_path):
+    images = cp.load(dataset_path + 'base-images.npy')
+    labels = cp.load(dataset_path + 'labels.npy')
+
+    for i in range(50):    
+        p = cp.random.permutation(labels.shape[0])
+        images = images[p]
+        labels = labels[p]
+
+    images_and_extra = cp.concatenate((images, images[:156]), axis=0)
+    labels_and_extra = cp.concatenate((labels, labels[:156]), axis=0)
+
+    cp.save(dataset_path + "images-and-extra.npy", images_and_extra)
+    cp.save(dataset_path + "labels-and-extra", labels_and_extra)
+
+
 
 dataset_path = "C:\\Users\\yaniv\\Documents\\datasets\\dog-breed\\"
 
 with open(dataset_path + 'breed-dict.pickle', 'rb') as f:
     breeds = pickle.load(f)
 
-images = cp.load(dataset_path + 'base-images.npy')
-labels = cp.load(dataset_path + 'labels.npy')
-
-for i in range(50):    
-    p = cp.random.permutation(labels.shape[0])
-    images = images[p]
-    labels = labels[p]
-
-images_and_extra = cp.concatenate((images, images[:156]), axis=0)
-labels_and_extra = cp.concatenate((labels, labels[:156]), axis=0)
-
-cp.save(dataset_path + "images-and-extra.npy", images_and_extra)
-cp.save(dataset_path + "labels-and-extra", labels_and_extra)
+get_ready_batches(dataset_path)
 
 
         
