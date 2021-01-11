@@ -42,6 +42,8 @@ def get_ready_batches(dataset_path):
     images = cp.load(dataset_path + 'base-images.npy')
     labels = cp.load(dataset_path + 'labels.npy')
 
+    images = images.transpose(0, 3, 1, 2)
+
     for i in range(50):    
         p = cp.random.permutation(labels.shape[0])
         images = images[p]
@@ -59,9 +61,13 @@ dataset_path = "C:\\Users\\yaniv\\Documents\\datasets\\dog-breed\\"
 
 with open(dataset_path + 'breed-dict.pickle', 'rb') as f:
     breeds = pickle.load(f)
+    
+images = cp.load(dataset_path + "images-and-extra.npy")
+labels = cp.load(dataset_path + "labels-and-extra.npy")
 
-get_ready_batches(dataset_path)
+for label in labels:
+    print (label)
 
-
+print (images.shape)
         
 

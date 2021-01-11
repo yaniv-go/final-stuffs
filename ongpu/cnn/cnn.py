@@ -302,8 +302,7 @@ class CNN:
 
         return j, jv
 
-    def adam_momentum(self, epochs, x, y, xv, yv, e=0.01, wd=0.01, k=32, d=0.999, m=0.9):
-        xv, yv = self.get_batches(xv, yv, k)
+    def adam_momentum(self, epochs, xb, yb, xv, yv, e=0.01, wd=0.01, k=32, d=0.999, m=0.9):
         rr = [cp.array([0] * self.g[type(x)]) for x in self.nn]
         ss = [cp.array([0] * self.g[type(x)]) for x in self.nn]
         
@@ -313,12 +312,10 @@ class CNN:
         t = 0
 
         for ep in range(epochs):
-            xb, yb = self.get_batches(x, y, k)
-
             for n in range(xb.shape[0]):
-                p = cp.random.randint(xb.shape[0] - 1)
+                p = np.random.randint(xb.shape[0] - 1)
 
-                xt, yt = xb[p], yb[p]
+                xt, yt = cp.array(xb[p]), cp.array(yb[p])
 
                 o = self.forward(xt)
                 cost = self.cost(o, yt)
@@ -344,8 +341,8 @@ class CNN:
                     l.update(wd * e)
 
             for xt, yt in zip(xv, yv):
-                o = self.forward(xt)
-                jv.append(self.cost(o, yt))
+                o = self.forward(cp.array(xt))
+                jv.append(self.cost(o, cp.array(yt)))
 
         return j, jv
 
@@ -370,36 +367,76 @@ def get_mnist():
 
     return tx, ty, vx, vy
 
+def get_dogs(dataset_path):
+    x = np.load(dataset_path + 'images-and-extra.npy')
+    y = np.load(dataset_path + 'labels-and-extra.npy')
 
-x, y = cp.load('C:\\Users\\yaniv\\Documents\\datasets\\dog-breed\\images.npy'), cp.load('C:\\Users\\yaniv\\Documents\\datasets\\dog-breed\\image-labels.npy')
-
-cp.random.seed(101)
-
-p = cp.random.permutation(x.shape[0])
-x, y = x[p], y[p]
-p = cp.random.permutation(x.shape[0])
-x, y = x[p], y[p]
-
-
-
-input('me')
-
-sys.exit()
+    return x, y
 
 c = CNN()
-c.add_conv_layer(3, 16, 1, 1)
-c.add_bn_layer((16, 28, 28))
+c.add_conv_layer(3, 64, 1, 1, 3)
+c.add_bn_layer((64, 224, 224))
+c.add_relu_layer()
+c.add_conv_layer(3, 64, 1, 1, 64)
+c.add_bn_layer((64, 224, 224))
 c.add_relu_layer()
 c.add_pool_layer()
-c.add_conv_layer(3, 16, 1, 1, 16)
-c.add_bn_layer((16, 14, 14))
+
+c.add_conv_layer(3, 128, 1, 1, 64)
+c.add_bn_layer((128, 112, 112))
+c.add_relu_layer()
+c.add_conv_layer(3, 128, 1, 1, 128)
+c.add_bn_layer((128, 112, 112))
 c.add_relu_layer()
 c.add_pool_layer()
-c.add_fc_layer(784, 100, 1)
-c.add_bn_layer((100,))
+
+c.add_conv_layer(3, 256, 1, 1, 128)
+c.add_bn_layer((256, 56, 56))
 c.add_relu_layer()
-c.add_fc_layer(100, 10, 0)
+c.add_conv_layer(3, 256, 1, 1, 256)
+c.add_bn_layer((256, 56, 56))
+c.add_relu_layer()
+c.add_pool_layer()
+
+c.add_conv_layer(3, 512, 1, 1, 256)
+c.add_bn_layer((512, 28, 28))
+c.add_relu_layer()
+c.add_conv_layer(3, 512, 1, 1, 512)
+c.add_bn_layer((512, 28, 28))
+c.add_relu_layer()
+c.add_pool_layer()
+
+c.add_conv_layer(3, 512, 1, 1, 256)
+c.add_bn_layer((512, 14, 14))
+c.add_relu_layer()
+c.add_conv_layer(3, 512, 1, 1, 512)
+c.add_bn_layer((512, 14, 14))
+c.add_relu_layer()
+c.add_pool_layer()
+
+c.add_fc_layer(25088, 4096, 1)
+c.add_bn_layer((4096,))
+c.add_relu_layer()
+
+c.add_fc_layer(4096, 4096, 0)
+c.add_bn_layer((4096,))
+c.add_relu_layer()
+
+c.add_fc_layer(4096, 2048, 0)
+c.add_bn_layer((2048,))
+c.add_relu_layer
+
+c.add_fc_layer(2048, 120)
 c.add_softmax_layer()
+
+dataset_path = "C:\\Users\\yaniv\\Documents\\datasets\\dog-breed\\"
+x, y = get_dogs(dataset_path)
+
+xb = x.reshape((-1, 16, 3, 224, 224))
+yb = y.reshape((-1, 16))
+
+n = int(xb.shape[0] * 0.7)
+(tx, ty), (vx, vy) = (xb[:n], yb[:n]), (xb[n:], yb[n:])
 
 #cProfile.run('c.sgd(1, tx, ty, vx, vy, e0=1e-3, wd=1e-8, k=2500)')
 
