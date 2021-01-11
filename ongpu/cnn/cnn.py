@@ -368,72 +368,55 @@ def get_mnist():
     return tx, ty, vx, vy
 
 def get_dogs(dataset_path):
-    x = np.load(dataset_path + 'images-and-extra.npy')
-    y = np.load(dataset_path + 'labels-and-extra.npy')
+    x = np.load(dataset_path + 'images-and-extra-224.npy')
+    y = np.load(dataset_path + 'labels-and-extra-224.npy')
+    y = get_one_hot(y, 120)
 
     return x, y
 
 c = CNN()
-c.add_conv_layer(3, 64, 1, 1, 3)
-c.add_bn_layer((64, 224, 224))
+c.add_conv_layer(3, 32, 1, 1, 3)
+c.add_bn_layer((32, 224, 224))
 c.add_relu_layer()
+c.add_pool_layer()
+
+c.add_conv_layer(3, 32, 1, 1, 32)
+c.add_bn_layer((32, 112, 112))
+c.add_relu_layer()
+c.add_pool_layer()
+
+c.add_conv_layer(3, 64, 1, 1, 32)
+c.add_bn_layer((64, 56, 56))
+c.add_relu_layer()
+c.add_pool_layer()
+
 c.add_conv_layer(3, 64, 1, 1, 64)
-c.add_bn_layer((64, 224, 224))
+c.add_bn_layer((64, 28, 28))
 c.add_relu_layer()
 c.add_pool_layer()
 
-c.add_conv_layer(3, 128, 1, 1, 64)
-c.add_bn_layer((128, 112, 112))
-c.add_relu_layer()
-c.add_conv_layer(3, 128, 1, 1, 128)
-c.add_bn_layer((128, 112, 112))
+c.add_conv_layer(3, 64, 1, 1, 64)
+c.add_bn_layer((64, 14, 14))
 c.add_relu_layer()
 c.add_pool_layer()
 
-c.add_conv_layer(3, 256, 1, 1, 128)
-c.add_bn_layer((256, 56, 56))
-c.add_relu_layer()
-c.add_conv_layer(3, 256, 1, 1, 256)
-c.add_bn_layer((256, 56, 56))
-c.add_relu_layer()
-c.add_pool_layer()
-
-c.add_conv_layer(3, 512, 1, 1, 256)
-c.add_bn_layer((512, 28, 28))
-c.add_relu_layer()
-c.add_conv_layer(3, 512, 1, 1, 512)
-c.add_bn_layer((512, 28, 28))
-c.add_relu_layer()
-c.add_pool_layer()
-
-c.add_conv_layer(3, 512, 1, 1, 256)
-c.add_bn_layer((512, 14, 14))
-c.add_relu_layer()
-c.add_conv_layer(3, 512, 1, 1, 512)
-c.add_bn_layer((512, 14, 14))
-c.add_relu_layer()
-c.add_pool_layer()
-
-c.add_fc_layer(25088, 4096, 1)
-c.add_bn_layer((4096,))
+c.add_fc_layer(3136, 3136, 1)
+c.add_bn_layer((3136,))
 c.add_relu_layer()
 
-c.add_fc_layer(4096, 4096, 0)
-c.add_bn_layer((4096,))
+c.add_fc_layer(3136, 1000)
+c.add_bn_layer((1000,))
 c.add_relu_layer()
 
-c.add_fc_layer(4096, 2048, 0)
-c.add_bn_layer((2048,))
-c.add_relu_layer
-
-c.add_fc_layer(2048, 120)
+c.add_fc_layer(1000, 120)
 c.add_softmax_layer()
+
 
 dataset_path = "C:\\Users\\yaniv\\Documents\\datasets\\dog-breed\\"
 x, y = get_dogs(dataset_path)
 
 xb = x.reshape((-1, 16, 3, 224, 224))
-yb = y.reshape((-1, 16))
+yb = y.reshape((-1, 16, 120))
 
 n = int(xb.shape[0] * 0.7)
 (tx, ty), (vx, vy) = (xb[:n], yb[:n]), (xb[n:], yb[n:])

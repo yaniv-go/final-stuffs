@@ -55,6 +55,20 @@ def get_ready_batches(dataset_path):
     cp.save(dataset_path + "images-and-extra.npy", images_and_extra)
     cp.save(dataset_path + "labels-and-extra", labels_and_extra)
 
+def resize_images(dataset_path, size):
+    images_path = dataset_path + 'images-224\\'
+    images_resized_path = dataset_path + 'images-112\\'
+
+    os.mkdir(images_resized_path)
+
+    for folder in os.listdir(images_path):
+        breed_path = images_path + folder + '\\'
+        resized_breed_path = images_resized_path + folder + '\\'
+        os.mkdir(resized_breed_path)
+        for photo in os.listdir(breed_path):
+            image = Image.open(breed_path + photo)
+            image = image.resize((size, size))
+            image.save(resized_breed_path + photo)
 
 
 dataset_path = "C:\\Users\\yaniv\\Documents\\datasets\\dog-breed\\"
@@ -62,12 +76,6 @@ dataset_path = "C:\\Users\\yaniv\\Documents\\datasets\\dog-breed\\"
 with open(dataset_path + 'breed-dict.pickle', 'rb') as f:
     breeds = pickle.load(f)
     
-images = cp.load(dataset_path + "images-and-extra.npy")
-labels = cp.load(dataset_path + "labels-and-extra.npy")
-
-for label in labels:
-    print (label)
-
-print (images.shape)
+resize_images(dataset_path, 112)
         
 
