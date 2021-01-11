@@ -1,5 +1,6 @@
 from keras.datasets import mnist
 from layers import *
+import time
 import cupy as cp
 import numpy as np
 import pandas as pd
@@ -75,27 +76,21 @@ class CNN:
         if (n / t) < 1: return e0 * (1 - n / t) + et * t
         return et
 
-    def sgd(self, epochs, x, y, xv, yv, e0=0.01, t=100, et=0, wd=0.01, k=16):
+    def sgd(self, epochs, xb, yb, xv, yv, e0=0.01, t=100, et=0, wd=0.01, k=16):
         if et == 0: et = e0 / 100
-        xv, yv = self.get_batches(xv, yv, k)
         j, jv = [], []
-        best = cp.inf
 
         for ep in range(epochs):
+            print (ep)
             e = self.get_learning_rate(e0, et, t, ep)
-
-            xb, yb = self.get_batches(x, y, k)
-
+            t += 1
             for n in range(xb.shape[0]):
                 p = cp.random.randint(xb.shape[0] - 1)
 
-                xt, yt = xb[p], yb[p]
+                xt, yt = cp.array(xb[p]), cp.array(yb[p])
 
                 o = self.forward(xt)
                 cost = self.cost(o, yt)
-                if cost < best: 
-                    self.best_model = copy.deepcopy(self.nn)
-                    best = cost
                 j.append(cost)
 
                 self.back(o, yt)
@@ -149,9 +144,8 @@ class CNN:
 
         return j, jv
 
-    def sgd_momentum_nesterov(self, epochs, x, y, xv, yv, e0=0.01, t=100, et=0, wd=0.01, k=16, m=9):
+    def sgd_momentum_nesterov(self, epochs, xb, yb, xv, yv, e0=0.01, t=100, et=0, wd=0.01, k=16, m=9):
         if et == 0: et = e0 / 100
-        xv, yv = self.get_batches(xv, yv, k)
         vv = [[0] * self.g[type(x)] for x in self.nn]
         j, jv = [], []
         best = cp.inf
@@ -159,12 +153,10 @@ class CNN:
         for ep in range(epochs):
             e = self.get_learning_rate(e0, et, t, ep)
 
-            xb, yb = self.get_batches(x, y, k)
-
             for n in range(xb.shape[0]):
                 p = cp.random.randint(xb.shape[0] - 1)
 
-                xt, yt = xb[p], yb[p]
+                xt, yt = cp.array(xb[p]), cp.array(yb[p])
 
                 o = self.forward(xt)
                 cost = self.cost(o, yt)
@@ -312,6 +304,9 @@ class CNN:
         t = 0
 
         for ep in range(epochs):
+            print (ep)
+            tm = time.time()
+
             for n in range(xb.shape[0]):
                 p = np.random.randint(xb.shape[0] - 1)
 
@@ -319,9 +314,6 @@ class CNN:
 
                 o = self.forward(xt)
                 cost = self.cost(o, yt)
-                if cost < best: 
-                    self.best_model = copy.deepcopy(self.nn)
-                    best = cost
                 j.append(cost)
 
                 self.back(o, yt)
@@ -343,6 +335,7 @@ class CNN:
             for xt, yt in zip(xv, yv):
                 o = self.forward(cp.array(xt))
                 jv.append(self.cost(o, cp.array(yt)))
+            print(tm - time.time())
 
         return j, jv
 
@@ -415,15 +408,15 @@ c.add_softmax_layer()
 dataset_path = "C:\\Users\\yaniv\\Documents\\datasets\\dog-breed\\"
 x, y = get_dogs(dataset_path)
 
-xb = x.reshape((-1, 16, 3, 224, 224))
-yb = y.reshape((-1, 16, 120))
+xb = x.reshape((-1, 32, 3, 224, 224))
+yb = y.reshape((-1, 32, 120))
 
 n = int(xb.shape[0] * 0.7)
 (tx, ty), (vx, vy) = (xb[:n], yb[:n]), (xb[n:], yb[n:])
 
 #cProfile.run('c.sgd(1, tx, ty, vx, vy, e0=1e-3, wd=1e-8, k=2500)')
 
-cProfile.run('j, jv = c.adam_momentum(100, tx, ty, vx, vy, e=3e-3, wd=0, k=1000)')
+cProfile.run('j, jv = c.adam_momentum(65, tx, ty, vx, vy, e=3e-3, wd=0, k=1000)')
 fig, axs = plt.subplots(2)
 axs[0].plot(range(len(j)), j)
 axs[1].plot(range(len(jv)), jv)
