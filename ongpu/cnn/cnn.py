@@ -9,6 +9,7 @@ import sklearn.datasets as sk
 import random
 import copy
 import cProfile
+import pickle
 import sys
 
 class CNN:
@@ -337,6 +338,9 @@ class CNN:
                 jv.append(self.cost(o, cp.array(yt)))
             print(tm - time.time())
 
+        with open('model-12-01.pickle', 'wb') as f:
+            pickle.dump(self.nn, f)
+
         return j, jv
 
 def get_one_hot(targets, nb_classes):
@@ -408,15 +412,15 @@ c.add_softmax_layer()
 dataset_path = "C:\\Users\\yaniv\\Documents\\datasets\\dog-breed\\"
 x, y = get_dogs(dataset_path)
 
-xb = x.reshape((-1, 32, 3, 224, 224))
-yb = y.reshape((-1, 32, 120))
+xb = x.reshape((-1, 16, 3, 224, 224))
+yb = y.reshape((-1, 16, 120))
 
 n = int(xb.shape[0] * 0.7)
 (tx, ty), (vx, vy) = (xb[:n], yb[:n]), (xb[n:], yb[n:])
 
 #cProfile.run('c.sgd(1, tx, ty, vx, vy, e0=1e-3, wd=1e-8, k=2500)')
 
-cProfile.run('j, jv = c.adam_momentum(30, tx, ty, vx, vy, e=3e-3, wd=0, k=1000)')
+cProfile.run('j, jv = c.adam_momentum(35, tx, ty, vx, vy, e=1e-4, wd=0, k=1000)')
 fig, axs = plt.subplots(2)
 axs[0].plot(range(len(j)), j)
 axs[1].plot(range(len(jv)), jv)
