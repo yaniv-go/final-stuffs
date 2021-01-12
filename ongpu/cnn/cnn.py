@@ -64,10 +64,12 @@ class CNN:
     
     def test(self, x, y):
         yes, no = 0, 0
-        o = self.forward(x)
-        for ot, yt in zip(cp.argmax(o, axis=1), y):
-            if ot == yt: yes += 1
-            else: no += 1
+
+        for xb, yb in zip(x, y):
+            o = self.forward(xb)
+            for ot, yt in zip(cp.argmax(o, axis=1), yb):
+                if ot == yt: yes += 1
+                else: no += 1
 
         print('yes: ', yes)
         print ('no: ', no)
@@ -338,9 +340,6 @@ class CNN:
                 jv.append(self.cost(o, cp.array(yt)))
             print(tm - time.time())
 
-        with open('model-12-01.pickle', 'wb') as f:
-            pickle.dump(self.nn, f)
-
         return j, jv
 
 def get_one_hot(targets, nb_classes):
@@ -421,6 +420,12 @@ n = int(xb.shape[0] * 0.7)
 #cProfile.run('c.sgd(1, tx, ty, vx, vy, e0=1e-3, wd=1e-8, k=2500)')
 
 cProfile.run('j, jv = c.adam_momentum(35, tx, ty, vx, vy, e=1e-4, wd=0, k=1000)')
+
+with open('model-12-01.pickle', 'wb') as f:
+    pickle.dump(c, f)
+
+y = cp.load(dataset_path + 'labels-and-extra-224.npy')
+c.test(x[:256].reshape((-1 ,16, 3, 224, 224)), y[:256].reshape((-1, 16)))
 fig, axs = plt.subplots(2)
 axs[0].plot(range(len(j)), j)
 axs[1].plot(range(len(jv)), jv)
