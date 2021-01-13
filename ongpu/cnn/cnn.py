@@ -375,12 +375,12 @@ def get_cnn(f):
 
 if __name__ == "__main__":
     c = CNN()
-    c.add_conv_layer(3, 32, 1, 1, 3)
-    c.add_bn_layer((32, 224, 224))
+    c.add_conv_layer(3, 16, 1, 1, 3)
+    c.add_bn_layer((16, 224, 224))
     c.add_relu_layer()
     c.add_pool_layer()
 
-    c.add_conv_layer(3, 32, 1, 1, 32)
+    c.add_conv_layer(3, 32, 1, 1, 16)
     c.add_bn_layer((32, 112, 112))
     c.add_relu_layer()
     c.add_pool_layer()
@@ -427,7 +427,7 @@ if __name__ == "__main__":
 
     print(tx[0][0])
 
-    cProfile.run('j, jv = c.adam_momentum(55, tx, ty, vx, vy, e=1e-3, wd=0, k=1000)')
+    cProfile.run('j, jv = c.adam_momentum(55, tx, ty, vx, vy, e=1e-4, wd=0, k=1000)')
 
     with open('model-12-01.pickle', 'wb') as f:
         pickle.dump(c, f)
