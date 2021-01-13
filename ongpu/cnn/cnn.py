@@ -66,14 +66,14 @@ class CNN:
         yes, no = 0, 0
 
         for xb, yb in zip(x, y):
-            o = self.forward(xb)
-            for ot, yt in zip(cp.argmax(o, axis=1), yb):
+            o = self.forward(cp.asarray(xb))
+            for ot, yt in zip(cp.argmax(o, axis=1), cp.asarray(yb)):
                 if ot == yt: yes += 1
                 else: no += 1
 
         print('yes: ', yes)
         print ('no: ', no)
-        print ('per: ', yes/ x.shape[0])
+        print ('per: ', yes / 256)
 
     def get_learning_rate(self, e0, et, t, n):
         if (n / t) < 1: return e0 * (1 - n / t) + et * t
@@ -370,64 +370,72 @@ def get_dogs(dataset_path):
 
     return x, y
 
-c = CNN()
-c.add_conv_layer(3, 32, 1, 1, 3)
-c.add_bn_layer((32, 224, 224))
-c.add_relu_layer()
-c.add_pool_layer()
+def get_cnn(f):
+    return pickle.load(f)
 
-c.add_conv_layer(3, 32, 1, 1, 32)
-c.add_bn_layer((32, 112, 112))
-c.add_relu_layer()
-c.add_pool_layer()
+if __name__ == "__main__":
+    c = CNN()
+    c.add_conv_layer(3, 32, 1, 1, 3)
+    c.add_bn_layer((32, 224, 224))
+    c.add_relu_layer()
+    c.add_pool_layer()
 
-c.add_conv_layer(3, 64, 1, 1, 32)
-c.add_bn_layer((64, 56, 56))
-c.add_relu_layer()
-c.add_pool_layer()
+    c.add_conv_layer(3, 32, 1, 1, 32)
+    c.add_bn_layer((32, 112, 112))
+    c.add_relu_layer()
+    c.add_pool_layer()
 
-c.add_conv_layer(3, 64, 1, 1, 64)
-c.add_bn_layer((64, 28, 28))
-c.add_relu_layer()
-c.add_pool_layer()
+    c.add_conv_layer(3, 64, 1, 1, 32)
+    c.add_bn_layer((64, 56, 56))
+    c.add_relu_layer()
+    c.add_pool_layer()
 
-c.add_conv_layer(3, 64, 1, 1, 64)
-c.add_bn_layer((64, 14, 14))
-c.add_relu_layer()
-c.add_pool_layer()
+    c.add_conv_layer(3, 64, 1, 1, 64)
+    c.add_bn_layer((64, 28, 28))
+    c.add_relu_layer()
+    c.add_pool_layer()
 
-c.add_fc_layer(3136, 3136, 1)
-c.add_bn_layer((3136,))
-c.add_relu_layer()
+    c.add_conv_layer(3, 64, 1, 1, 64)
+    c.add_bn_layer((64, 14, 14))
+    c.add_relu_layer()
+    c.add_pool_layer()
 
-c.add_fc_layer(3136, 1000)
-c.add_bn_layer((1000,))
-c.add_relu_layer()
+    c.add_fc_layer(3136, 3136, 1)
+    c.add_bn_layer((3136,))
+    c.add_relu_layer()
 
-c.add_fc_layer(1000, 120)
-c.add_softmax_layer()
+    c.add_fc_layer(3136, 3136)
+    c.add_bn_layer((3136,))
+    c.add_relu_layer()
+
+    c.add_fc_layer(3136, 120)
+    c.add_softmax_layer()
 
 
-dataset_path = "C:\\Users\\yaniv\\Documents\\datasets\\dog-breed\\"
-x, y = get_dogs(dataset_path)
+    dataset_path = "C:\\Users\\yaniv\\Documents\\datasets\\dog-breed\\"
+    x, y = get_dogs(dataset_path)
 
-xb = x.reshape((-1, 16, 3, 224, 224))
-yb = y.reshape((-1, 16, 120))
+    x = x / 255
 
-n = int(xb.shape[0] * 0.7)
-(tx, ty), (vx, vy) = (xb[:n], yb[:n]), (xb[n:], yb[n:])
+    xb = x.reshape((-1, 16, 3, 224, 224))
+    yb = y.reshape((-1, 16, 120))
 
-#cProfile.run('c.sgd(1, tx, ty, vx, vy, e0=1e-3, wd=1e-8, k=2500)')
+    n = int(xb.shape[0] * 0.7)
+    (tx, ty), (vx, vy) = (xb[:n], yb[:n]), (xb[n:], yb[n:])
 
-cProfile.run('j, jv = c.adam_momentum(35, tx, ty, vx, vy, e=1e-4, wd=0, k=1000)')
+    #cProfile.run('c.sgd(1, tx, ty, vx, vy, e0=1e-3, wd=1e-8, k=2500)')
 
-with open('model-12-01.pickle', 'wb') as f:
-    pickle.dump(c, f)
+    print(tx[0][0])
 
-y = cp.load(dataset_path + 'labels-and-extra-224.npy')
-c.test(x[:256].reshape((-1 ,16, 3, 224, 224)), y[:256].reshape((-1, 16)))
-fig, axs = plt.subplots(2)
-axs[0].plot(range(len(j)), j)
-axs[1].plot(range(len(jv)), jv)
+    cProfile.run('j, jv = c.adam_momentum(55, tx, ty, vx, vy, e=1e-3, wd=0, k=1000)')
 
-plt.show()
+    with open('model-12-01.pickle', 'wb') as f:
+        pickle.dump(c, f)
+
+    y = cp.load(dataset_path + 'labels-and-extra-224.npy')
+    c.test(x[-1024:].reshape((-1 ,16, 3, 224, 224)), y[-1024:].reshape((-1, 16)))
+    fig, axs = plt.subplots(2)
+    axs[0].plot(range(len(j)), j)
+    axs[1].plot(range(len(jv)), jv)
+
+    plt.show()

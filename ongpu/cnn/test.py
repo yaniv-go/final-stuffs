@@ -7,6 +7,7 @@ import pandas as pd
 import pickle
 import cProfile
 import os
+import cnn
 
 def get_batches(x, y, k): 
     p = np.random.permutation(x.shape[0])
@@ -75,7 +76,4 @@ dataset_path = "C:\\Users\\yaniv\\Documents\\datasets\\dog-breed\\"
 
 with open(dataset_path + 'breed-dict.pickle', 'rb') as f:
     breeds = pickle.load(f)
-    
-resize_images(dataset_path, 112)
-        
 
