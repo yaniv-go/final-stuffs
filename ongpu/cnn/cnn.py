@@ -73,7 +73,7 @@ class CNN:
 
         print('yes: ', yes)
         print ('no: ', no)
-        print ('per: ', yes / 256)
+        print ('per: ', yes / 1024)
 
     def get_learning_rate(self, e0, et, t, n):
         if (n / t) < 1: return e0 * (1 - n / t) + et * t
@@ -88,7 +88,7 @@ class CNN:
             e = self.get_learning_rate(e0, et, t, ep)
             t += 1
             for n in range(xb.shape[0]):
-                p = cp.random.randint(xb.shape[0] - 1)
+                p = np.random.randint(xb.shape[0] - 1)
 
                 xt, yt = cp.array(xb[p]), cp.array(yb[p])
 
@@ -375,12 +375,12 @@ def get_cnn(f):
 
 if __name__ == "__main__":
     c = CNN()
-    c.add_conv_layer(3, 16, 1, 1, 3)
-    c.add_bn_layer((16, 224, 224))
+    c.add_conv_layer(3, 32, 1, 1, 3)
+    c.add_bn_layer((32, 224, 224))
     c.add_relu_layer()
     c.add_pool_layer()
 
-    c.add_conv_layer(3, 32, 1, 1, 16)
+    c.add_conv_layer(3, 32, 1, 1, 32)
     c.add_bn_layer((32, 112, 112))
     c.add_relu_layer()
     c.add_pool_layer()
@@ -390,17 +390,17 @@ if __name__ == "__main__":
     c.add_relu_layer()
     c.add_pool_layer()
 
-    c.add_conv_layer(3, 64, 1, 1, 64)
-    c.add_bn_layer((64, 28, 28))
+    c.add_conv_layer(3, 128, 1, 1, 64)
+    c.add_bn_layer((128, 28, 28))
     c.add_relu_layer()
     c.add_pool_layer()
 
-    c.add_conv_layer(3, 64, 1, 1, 64)
-    c.add_bn_layer((64, 14, 14))
+    c.add_conv_layer(3, 128, 1, 1, 128)
+    c.add_bn_layer((128, 14, 14))
     c.add_relu_layer()
     c.add_pool_layer()
 
-    c.add_fc_layer(3136, 3136, 1)
+    c.add_fc_layer(6272, 3136, 1)
     c.add_bn_layer((3136,))
     c.add_relu_layer()
 
@@ -427,7 +427,7 @@ if __name__ == "__main__":
 
     print(tx[0][0])
 
-    cProfile.run('j, jv = c.adam_momentum(55, tx, ty, vx, vy, e=1e-4, wd=0, k=1000)')
+    cProfile.run('j, jv = c.adam_momentum(50, tx, ty, vx, vy, e=1e-6, wd=0, k=1000)')
 
     with open('model-12-01.pickle', 'wb') as f:
         pickle.dump(c, f)
