@@ -427,7 +427,7 @@ if __name__ == "__main__":
 
     print(tx[0][0])
 
-    cProfile.run('j, jv = c.adam_momentum(50, tx, ty, vx, vy, e=1e-6, wd=0, k=1000)')
+    cProfile.run('j, jv = c.adam_momentum(35, tx, ty, vx, vy, e=1e-3, wd=0, k=1000)')
 
     with open('model-12-01.pickle', 'wb') as f:
         pickle.dump(c, f)
