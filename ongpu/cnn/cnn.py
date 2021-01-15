@@ -111,39 +111,37 @@ class CNN:
     
         return j, jv
 
-    def sgd_momentum(self, epochs, x, y, xv, yv, e0=0.01, t=100, et=0, wd=0.01, k=16, m=9):
+    def sgd_momentum(self, epochs, xb, yb, xv, yv, e0=0.01, t=100, et=0, wd=0.01, k=16, m=9):
         if et == 0: et = e0 / 100
-        xv, yv = self.get_batches(xv, yv, k)
         vv = [[0] * self.g[type(x)] for x in self.nn]
         j, jv = [], []
         best = cp.inf
 
         for ep in range(epochs):
+            print(ep)
+            tm = time.time()
             e = self.get_learning_rate(e0, et, t, ep)
 
-            xb, yb = self.get_batches(x, y, k)
-
             for n in range(xb.shape[0]):
-                p = cp.random.randint(xb.shape[0] - 1)
+                p = np.random.randint(xb.shape[0] - 1)
 
-                xt, yt = xb[p], yb[p]
+                xt, yt = cp.asarray(xb[p]), cp.asarray(yb[p])
 
                 o = self.forward(xt)
                 cost = self.cost(o, yt)
-                if cost < best: 
-                    self.best_model = copy.deepcopy(self.nn)
-                    best = cost
                 j.append(cost)
 
                 self.back(o, yt)
-                for l, v in zip(self.nn, vv):
-                    v = [m * c + e * dx for c, dx in zip(v, l.mem)]
-                    l.mem = v
-                    l.update(wd * e)
+                for i in range(len(self.nn)):
+                    vv[i] = [m * c + e * dx for c, dx in zip(vv[i], self.nn[i].mem)]
+                    self.nn[i].mem = vv[i]
+                    self.nn[i].update(wd * e)
+
 
             for xt, yt in zip(xv, yv):
                 o = self.forward(xt)
                 jv.append(self.cost(o, yt))
+            print(time.time() - tm)
 
         return j, jv
 
@@ -427,7 +425,8 @@ if __name__ == "__main__":
 
     print(tx[0][0])
 
-    cProfile.run('j, jv = c.adam_momentum(35, tx, ty, vx, vy, e=1e-3, wd=0, k=1000)')
+    with cp.cuda.profile():
+        cProfile.run('j, jv = c.adam_momentum(35, tx, ty, vx, vy, e=1e-3, wd=0, k=1000)')
 
     with open('model-12-01.pickle', 'wb') as f:
         pickle.dump(c, f)

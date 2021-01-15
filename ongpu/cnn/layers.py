@@ -33,7 +33,7 @@ class BN_layer():
 
         y = self.gamma * x_hat + self.beta      
 
-        self.mem = x_reshaped, mean, var, x_hat
+        self.mem = x_reshaped, mean, var
 
         return y.transpose(1, 0, 2).reshape(n, c, w, h)
 
@@ -45,22 +45,35 @@ class BN_layer():
 
         y = self.gamma * x_hat + self.beta
 
-        self.mem = x, mean, var, x_hat
+        self.mem = x, mean, var
 
         return y
 
     def back_prev_conv(self, do):
-        x_reshaped, mean, var, x_hat = self.mem
+        x_reshaped, mean, var = self.mem
+        x_hat = (x_reshaped - mean) / (cp.sqrt(var + 1e-10))
         n, c, w, h = do.shape
         do = do.transpose(1, 0, 2, 3).reshape(c, n, w * h)
 
         var = cp.sqrt(var + 1e-9)
-        xminusm = x_reshaped - mean
 
+        """
+        this is what i am doing in the following line i had to join it together for 
+        memory effeciency concerns
+        
+        xminusm = (x_reshaped - mean)
+        
         dx_hat = do * self.gamma
         dvar = dx_hat * xminusm * (var ** -3.) / -2.
         dmean = (dx_hat * (-1/ var)) + dvar * -2 * xminusm 
+        
         dx_reshaped = (dx_hat / var) +  dvar * 2 * xminusm / n + dmean / n
+        """
+
+        dx_reshaped = (do * self.gamma / var + 
+            -1 * do * self.gamma * ((x_reshaped - mean) ** 2) * (var ** -3) / n + 
+            (-1 * do * self.gamma / var + do * self.gamma * ((x_reshaped - mean) ** 2) * (var ** -3)) / n)
+
         dgamma = cp.sum(do * x_hat, axis=1).reshape(c, 1, h * w)
         dbeta = cp.sum(do, axis=1).reshape(c, 1, h * w)
 
@@ -69,16 +82,29 @@ class BN_layer():
         return dx_reshaped.transpose(1, 0, 2).reshape(n, c, w, h)
 
     def back_prev_fc(self, do):
-        x, mean, var, x_hat = self.mem
+        x, mean, var = self.mem
+        x_hat = (x - mean) / cp.sqrt(var + 1e-10)
         n = do.shape[0]
 
         var = cp.sqrt(var + 1e-9)
+        
+        """
+        this is what i am doing in the following line i had to join it together for 
+        memory effeciency concerns
+
         xminusm = x - mean
 
         dx_hat = do * self.gamma
         dvar = dx_hat * xminusm * (var ** -3.) / -2.
         dmean = (dx_hat * (-1/ var)) + dvar * -2 * xminusm 
+        
         dx = (dx_hat / var) +  dvar * 2 * xminusm / n + dmean / n
+        """
+
+        dx = (do * self.gamma / var + 
+            -1 * do * self.gamma * ((x - mean) ** 2) * (var ** -3) / n + 
+            (-1 * do * self.gamma / var + do * self.gamma * ((x - mean) ** 2) * (var ** -3)) / n)
+
         dgamma = cp.sum(do * x_hat, axis=0)
         dbeta = cp.sum(do, axis=0)
 
@@ -89,10 +115,12 @@ class BN_layer():
     def update(self, wd=0):
         self.gamma -= (wd * self.gamma + self.mem[0])
         self.beta -= (wd * self.beta + self.mem[1])
-        
+
+        self.mem = [None]
+     
 class SoftMaxLayer():
     def __init(self):
-        self.mem = 0
+        self.mem = [None]
 
     def forward(self, x):
         self.mem = self.softmax(x)
@@ -107,7 +135,7 @@ class SoftMaxLayer():
 
     def backprop(self, y):
         de = y - self.mem
-        self.mem = []
+        self.mem = [None]
         return de
 
     def update(self, wd=0):
@@ -115,7 +143,7 @@ class SoftMaxLayer():
 
 class ReluLayer():
     def __init__(self):
-        self.mem = 0
+        self.mem = [None]
 
     def forward(self, x):
         self.mem = x
@@ -129,7 +157,7 @@ class ReluLayer():
     
     def backprop(self, x):
         y = self.mem
-        self.mem = []
+        self.mem = [None]
 
         return self.d_relu(y) * x
     
@@ -185,6 +213,8 @@ class Fc():
         self.w -= (self.mem[0] + wd * self.w)
         self.b -= (self.mem[1] + wd * self.b)
 
+        self.mem = [None]
+
 class MaxPool():
     def __init__(self, size=2, stride=2, paddding=0):
         self.ks = size
@@ -197,15 +227,18 @@ class MaxPool():
         w = int(((wp + 2 * self.p - self.ks) / self.s) + 1)
 
         x_reshaped = x.reshape(n * c, 1, hp, wp)
+        if not cp.may_share_memory(x_reshaped, x):
+            print('shit its forward maxpool')
+        del x
         x_col = im2col(x_reshaped, self.ks, self.ks, self.p, self.s)
 
         max_idx = cp.argmax(x_col, axis=0)
 
-        out = cp.amax(x_col, 0)
+        out = x_col[max_idx, cp.arange(max_idx.size)]
         out = out.reshape(h, w, n, c)
         out = out.transpose(2, 3, 0, 1)
 
-        self.mem = max_idx, x_col.shape, x.shape
+        self.mem = max_idx, x_col.shape, (n, c, hp, wp)
 
         return out
     
@@ -214,16 +247,18 @@ class MaxPool():
         
         dx_col = cp.zeros(shape)
 
-        do_f = do.transpose(2, 3, 0, 1).ravel()
+        do = do.transpose(2, 3, 0, 1).ravel()
+        if not cp.may_share_memory(do, do):
+            print('shit its maxpool backprop')
 
-        dx_col[maxi, cp.arange(maxi.size)] = do_f
+        dx_col[maxi, cp.arange(maxi.size)] = do
 
         n, c, h, w = xshape
 
         dx = col2im(dx_col, (n * c, 1, h, w), self.ks, self.ks, self.p, self.s)
         dx = dx.reshape(xshape)
 
-        self.mem = []
+        self.mem = [None]
 
         return dx
 
@@ -235,7 +270,7 @@ class ConvLayer:
         self.ks = size ; self.p = pad ; self.s = stride 
         self.a = amount ; self.c = channels
 
-        self.k = cp.random.rand(self.a, self.c, self.ks, self.ks) * cp.sqrt(2./self.ks)
+        self.k = cp.random.rand(self.a, self.c, self.ks, self.ks) * cp.sqrt(2./(self.ks ** 2))
         self.b = cp.zeros((self.a, 1))
     
     def forward(self, x):
@@ -263,7 +298,8 @@ class ConvLayer:
         dw = do @ self.mem[1].T
         dw = dw.reshape(self.k.shape)
 
-        dxcol = self.k.T @ do
+        k_col = self.k.reshape(self.a, -1)
+        dxcol = k_col.T @ do
         dx = col2im(dxcol, self.mem[0], self.ks, self.ks, self.p, self.s)
 
         self.mem = dw, db
@@ -273,6 +309,7 @@ class ConvLayer:
     def update(self, wd):
         self.k -= (self.mem[0] + wd * self.k)
         self.b -= (self.mem[1] + wd * self.b)
+        self.mem = [None]
 
 def get_indices(x_shape, field_height, field_width, padding=1, stride=1):
   # First figure out what the size of the output should be
