@@ -227,8 +227,6 @@ class MaxPool():
         w = int(((wp + 2 * self.p - self.ks) / self.s) + 1)
 
         x_reshaped = x.reshape(n * c, 1, hp, wp)
-        if not cp.may_share_memory(x_reshaped, x):
-            print('shit its forward maxpool')
         del x
         x_col = im2col(x_reshaped, self.ks, self.ks, self.p, self.s)
 
@@ -248,8 +246,6 @@ class MaxPool():
         dx_col = cp.zeros(shape)
 
         do = do.transpose(2, 3, 0, 1).ravel()
-        if not cp.may_share_memory(do, do):
-            print('shit its maxpool backprop')
 
         dx_col[maxi, cp.arange(maxi.size)] = do
 

@@ -51,6 +51,8 @@ class CNN:
         return -cp.sum(y * cp.log(x + (1 * a))) / n
     
     def forward(self, x):
+        if type(x) == np.ndarray:
+            x = cp.array(x)
         for l in self.nn:
             x = l.forward(x)
         return x    
@@ -87,6 +89,9 @@ class CNN:
             print (ep)
             e = self.get_learning_rate(e0, et, t, ep)
             t += 1
+
+            tm = time.time()
+
             for n in range(xb.shape[0]):
                 p = np.random.randint(xb.shape[0] - 1)
 
@@ -108,7 +113,7 @@ class CNN:
                 validate.append(c)
             
             jv.append(np.sum(validate) / len(validate))
-    
+            
         return j, jv
 
     def sgd_momentum(self, epochs, xb, yb, xv, yv, e0=0.01, t=100, et=0, wd=0.01, k=16, m=9):
@@ -125,7 +130,7 @@ class CNN:
             for n in range(xb.shape[0]):
                 p = np.random.randint(xb.shape[0] - 1)
 
-                xt, yt = cp.asarray(xb[p]), cp.asarray(yb[p])
+                xt, yt = cp.array(xb[p]), cp.array(yb[p])
 
                 o = self.forward(xt)
                 cost = self.cost(o, yt)
@@ -137,10 +142,12 @@ class CNN:
                     self.nn[i].mem = vv[i]
                     self.nn[i].update(wd * e)
 
-
-            for xt, yt in zip(xv, yv):
-                o = self.forward(xt)
-                jv.append(self.cost(o, yt))
+            validate = [self.cost(self.forward(xv[1]), yv[1]), self.cost(self.forward(xv[0]), yv[0])]
+            for a, b in zip(xv[2:], yv[2:]):
+                c = self.cost(self.forward(a), b)
+                validate.append(c)
+            
+            jv.append(np.sum(validate) / len(validate))
             print(time.time() - tm)
 
         return j, jv
@@ -333,9 +340,12 @@ class CNN:
                     l.mem = [(y / (cp.sqrt(x) + 1e-9)) * e for y, x in zip(sh, rh)] 
                     l.update(wd * e)
 
-            for xt, yt in zip(xv, yv):
-                o = self.forward(cp.array(xt))
-                jv.append(self.cost(o, cp.array(yt)))
+            validate = [self.cost(self.forward(xv[1]), yv[1]), self.cost(self.forward(xv[0]), yv[0])]
+            for a, b in zip(xv[2:], yv[2:]):
+                c = self.cost(self.forward(a), b)
+                validate.append(c)
+            
+            jv.append(np.sum(validate) / len(validate))
             print(tm - time.time())
 
         return j, jv
@@ -415,18 +425,18 @@ if __name__ == "__main__":
 
     x = x / 255
 
-    xb = x.reshape((-1, 16, 3, 224, 224))
-    yb = y.reshape((-1, 16, 120))
+    xb = x.reshape((-1, 32, 3, 224, 224))
+    yb = y.reshape((-1, 32, 120))
 
     n = int(xb.shape[0] * 0.7)
     (tx, ty), (vx, vy) = (xb[:n], yb[:n]), (xb[n:], yb[n:])
 
     #cProfile.run('c.sgd(1, tx, ty, vx, vy, e0=1e-3, wd=1e-8, k=2500)')
 
-    print(tx[0][0])
+    with cp.cuda.profile() as p:
+        cProfile.run('j, jv = c.sgd_momentum(35, tx, ty, vx, vy, e0=1e-3, wd=0, k=1000)')
 
-    with cp.cuda.profile():
-        cProfile.run('j, jv = c.adam_momentum(35, tx, ty, vx, vy, e=1e-3, wd=0, k=1000)')
+    print(p)
 
     with open('model-12-01.pickle', 'wb') as f:
         pickle.dump(c, f)
