@@ -3,6 +3,30 @@ import cupyx
 import copy
 import sys
 
+class DropoutLayer():
+    def __init__(self, p=0):
+        assert 0 >= p < 1
+        self.p = p
+        self.mem = [None]
+
+    def forward(self, x):
+        drop = cp.random.normal(loc=self.p, size=x.shape, dtype='float32')
+        self.mem = drop
+
+        x = x * drop
+        
+        return x
+
+    def backprop(self, do):
+        drop = self.mem
+        self.mem = [None]
+
+        return do / drop
+
+    def update(self, wd):
+        pass
+
+
 class BN_layer():
     def __init__(self, exp_shape):
         assert isinstance(exp_shape, tuple)
@@ -10,20 +34,17 @@ class BN_layer():
             self.forward = self.forward_prev_fc
             self.backprop = self.back_prev_fc
 
-            self.gamma = cp.ones(exp_shape[0])
-            self.beta = cp.zeros(exp_shape[0])
+            self.gamma = cp.ones(exp_shape[0]).astype('float32')
+            self.beta = cp.zeros(exp_shape[0]).astype('float32')
         elif len(exp_shape) == 3: 
             self.forward = self.forward_prev_conv
             self.backprop = self.back_prev_conv
 
             c, w, h = exp_shape
-            self.gamma = cp.ones((c, 1, w * h))
-            self.beta = cp.zeros((c, 1, w * h))
+            self.gamma = cp.ones((c, 1, w * h)).astype('float32')
+            self.beta = cp.zeros((c, 1, w * h)).astype('float32')
         else:
             raise Exception("incorrect exp_shape input")
-
-        print(self.gamma.dtype)
-        print(self.beta.dtype)
 
     def forward_prev_conv(self, x):
         n, c, w, h = x.shape
@@ -173,13 +194,10 @@ class Fc():
         self.row = row
         self.col = column
 
-        self.w = cp.random.rand(self.row, self.col) * cp.sqrt(2./self.col)
-        self.b = cp.zeros(self.col)
+        self.w = (cp.random.rand(self.row, self.col) * cp.sqrt(2./self.col)).astype('float32')
+        self.b = cp.zeros(self.col).astype('float32')
         if self.prev_shape: self.forward = self.fprev_conv ; self.backprop = self.bprev_conv
         else: self.forward = self.fprev_fc ; self.backprop = self.bprev_fc
-
-        print(self.w.dtype)
-        print(self.b.dtype)
 
     def fprev_fc(self, x):
         self.mem = x
@@ -249,7 +267,7 @@ class MaxPool():
     def backprop(self, do):
         maxi, shape, xshape = self.mem
         
-        dx_col = cp.zeros(shape)
+        dx_col = cp.zeros(shape).astype('float32')
 
         do = do.transpose(2, 3, 0, 1).ravel()
 
@@ -272,11 +290,9 @@ class ConvLayer:
         self.ks = size ; self.p = pad ; self.s = stride 
         self.a = amount ; self.c = channels
 
-        self.k = cp.random.rand(self.a, self.c, self.ks, self.ks) * cp.sqrt(2./(self.ks ** 2))
-        self.b = cp.zeros((self.a, 1))
+        self.k = (cp.random.rand(self.a, self.c, self.ks, self.ks) * cp.sqrt(2./(self.ks ** 2))).astype('float32')
+        self.b = cp.zeros((self.a, 1)).astype('float32')
     
-        print(self.k.dtype)
-        print(self.b.dtype)
 
     def forward(self, x):
         n, cx, hp, wp = x.shape

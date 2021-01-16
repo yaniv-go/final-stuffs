@@ -14,7 +14,7 @@ import sys
 class CNN:
     def __init__(self):
         self.nn = []
-        self.g = {ConvLayer: 2, MaxPool:0, ReluLayer:0, SoftMaxLayer:0, Fc:2, BN_layer:2}
+        self.g = {ConvLayer: 2, MaxPool:0, ReluLayer:0, SoftMaxLayer:0, Fc:2, BN_layer:2, DropoutLayer:0}
 
     def get_batches(self, x, y, k): 
         p = cp.random.permutation(x.shape[0])
@@ -25,6 +25,9 @@ class CNN:
             y = cp.concatenate((y, y[:k - x.shape[0] % k]))
         
         return x.reshape(-1, k, x.shape[1], x.shape[2], x.shape[3]), y.reshape(-1, k, y.shape[1])
+
+    def add_dropout_layer(self, p=0):
+        self.nn.append(DropoutLayer(p))
 
     def add_bn_layer(self, exp_shape):
         self.nn.append(BN_layer(exp_shape))
@@ -302,8 +305,8 @@ class CNN:
         return j, jv
 
     def adam_momentum(self, epochs, xb, yb, xv, yv, e=0.01, wd=0.01, k=32, d=0.999, m=0.9):
-        rr = [cp.array([0] * self.g[type(x)]) for x in self.nn]
-        ss = [cp.array([0] * self.g[type(x)]) for x in self.nn]
+        rr = [cp.array([0] * self.g[type(x)], dtype='float32') for x in self.nn]
+        ss = [cp.array([0] * self.g[type(x)], dtype='float32') for x in self.nn]
         
         j, jv = [], []
         best = cp.inf
@@ -317,7 +320,7 @@ class CNN:
             for n in range(xb.shape[0]):
                 p = np.random.randint(xb.shape[0] - 1)
 
-                xt, yt = cp.array(xb[p]), cp.array(yb[p])
+                xt, yt = cp.array(xb[p], dtype='float32'), cp.array(yb[p], dtype='float32')
 
                 o = self.forward(xt)
                 cost = self.cost(o, yt)
@@ -384,39 +387,42 @@ def get_cnn(f):
 if __name__ == "__main__":
     c = CNN()
     c.add_conv_layer(3, 32, 1, 1, 3)
-    c.add_bn_layer((32, 224, 224))
     c.add_relu_layer()
+    c.add_bn_layer((32, 224, 224))
     c.add_pool_layer()
 
-    c.add_conv_layer(3, 32, 1, 1, 32  )
-    c.add_bn_layer((32, 112, 112))
+    c.add_conv_layer(3, 32, 1, 1, 32)
     c.add_relu_layer()
+    c.add_bn_layer((32, 112, 112))
     c.add_pool_layer()
 
     c.add_conv_layer(3, 64, 1, 1, 32)
-    c.add_bn_layer((64, 56, 56))
     c.add_relu_layer()
+    c.add_bn_layer((64, 56, 56))
     c.add_pool_layer()
 
     c.add_conv_layer(3, 128, 1, 1, 64)
-    c.add_bn_layer((128, 28, 28))
     c.add_relu_layer()
+    c.add_bn_layer((128, 28, 28))
     c.add_pool_layer()
 
     c.add_conv_layer(3, 128, 1, 1, 128)
-    c.add_bn_layer((128, 14, 14))
     c.add_relu_layer()
+    c.add_bn_layer((128, 14, 14))
     c.add_pool_layer()
 
     c.add_fc_layer(6272, 3136, 1)
-    c.add_bn_layer((3136,))
     c.add_relu_layer()
+    c.add_bn_layer((3136,))
+    c.add_dropout_layer()
 
     c.add_fc_layer(3136, 3136)
-    c.add_bn_layer((3136,))
     c.add_relu_layer()
+    c.add_bn_layer((3136,))
+    c.add_dropout_layer()
 
     c.add_fc_layer(3136, 120)
+    c.add_dropout_layer()
     c.add_softmax_layer()
 
 
@@ -428,16 +434,13 @@ if __name__ == "__main__":
     xb = x.reshape((-1, 32, 3, 224, 224))
     yb = y.reshape((-1, 32, 120))
 
-    print (xb.dtype)
-    print(yb.dtype)
-
     n = int(xb.shape[0] * 0.7)
     (tx, ty), (vx, vy) = (xb[:n], yb[:n]), (xb[n:], yb[n:])
 
     #cProfile.run('c.sgd(1, tx, ty, vx, vy, e0=1e-3, wd=1e-8, k=2500)')
 
     with cp.cuda.profile() as p:
-        cProfile.run('j, jv = c.sgd_momentum(35, tx, ty, vx, vy, e0=1e-3, wd=0, k=1000)')
+        cProfile.run('j, jv = c.adam_momentum(40, tx, ty, vx, vy, e=1e-3, wd=1e-5, k=1000)')
 
     print(p)
 
@@ -445,7 +448,13 @@ if __name__ == "__main__":
         pickle.dump(c, f)
 
     y = cp.load(dataset_path + 'labels-and-extra-224.npy')
-    c.test(x[-1024:].reshape((-1 ,16, 3, 224, 224)), y[-1024:].reshape((-1, 16)))
+    
+    print('training test: ')
+    c.test(x[:1024].reshape((-1 , 32, 3, 224, 224)), y[:1024].reshape((-1, 16)))
+
+    print('validation test: ')
+    c.test(x[-1024:].reshape((-1 , 32, 3, 224, 224)), y[-1024:].reshape((-1, 16)))
+    
     fig, axs = plt.subplots(2)
     axs[0].plot(range(len(j)), j)
     axs[1].plot(range(len(jv)), jv)
