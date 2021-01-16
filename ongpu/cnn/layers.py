@@ -22,6 +22,9 @@ class BN_layer():
         else:
             raise Exception("incorrect exp_shape input")
 
+        print(self.gamma.dtype)
+        print(self.beta.dtype)
+
     def forward_prev_conv(self, x):
         n, c, w, h = x.shape
 
@@ -175,6 +178,9 @@ class Fc():
         if self.prev_shape: self.forward = self.fprev_conv ; self.backprop = self.bprev_conv
         else: self.forward = self.fprev_fc ; self.backprop = self.bprev_fc
 
+        print(self.w.dtype)
+        print(self.b.dtype)
+
     def fprev_fc(self, x):
         self.mem = x
         o = cp.dot(x, self.w) + self.b
@@ -269,6 +275,9 @@ class ConvLayer:
         self.k = cp.random.rand(self.a, self.c, self.ks, self.ks) * cp.sqrt(2./(self.ks ** 2))
         self.b = cp.zeros((self.a, 1))
     
+        print(self.k.dtype)
+        print(self.b.dtype)
+
     def forward(self, x):
         n, cx, hp, wp = x.shape
         h = int(((hp + 2 * self.p - self.ks) / self.s) + 1)

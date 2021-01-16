@@ -1,4 +1,3 @@
-from keras.datasets import mnist
 from layers import *
 import time
 import cupy as cp
@@ -355,7 +354,8 @@ def get_one_hot(targets, nb_classes):
     return res.reshape(list(targets.shape)+[nb_classes])
 
 def get_mnist():
-        
+    from keras.datasets import mnist
+
     (tx, ty), (vx, vy) = mnist.load_data()
     tx = tx.astype('float32') / 255.
     tx = tx.reshape(tx.shape[0], 1, tx.shape[1], tx.shape[2])
@@ -376,7 +376,7 @@ def get_dogs(dataset_path):
     y = np.load(dataset_path + 'labels-and-extra-224.npy')
     y = get_one_hot(y, 120)
 
-    return x, y
+    return x.astype('float32'), y.astype('float32')
 
 def get_cnn(f):
     return pickle.load(f)
@@ -388,7 +388,7 @@ if __name__ == "__main__":
     c.add_relu_layer()
     c.add_pool_layer()
 
-    c.add_conv_layer(3, 32, 1, 1, 32)
+    c.add_conv_layer(3, 32, 1, 1, 32  )
     c.add_bn_layer((32, 112, 112))
     c.add_relu_layer()
     c.add_pool_layer()
@@ -427,6 +427,9 @@ if __name__ == "__main__":
 
     xb = x.reshape((-1, 32, 3, 224, 224))
     yb = y.reshape((-1, 32, 120))
+
+    print (xb.dtype)
+    print(yb.dtype)
 
     n = int(xb.shape[0] * 0.7)
     (tx, ty), (vx, vy) = (xb[:n], yb[:n]), (xb[n:], yb[n:])
