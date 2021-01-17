@@ -414,15 +414,12 @@ if __name__ == "__main__":
     c.add_fc_layer(6272, 3136, 1)
     c.add_relu_layer()
     c.add_bn_layer((3136,))
-    c.add_dropout_layer()
 
     c.add_fc_layer(3136, 3136)
     c.add_relu_layer()
     c.add_bn_layer((3136,))
-    c.add_dropout_layer()
 
     c.add_fc_layer(3136, 120)
-    c.add_dropout_layer()
     c.add_softmax_layer()
 
 
