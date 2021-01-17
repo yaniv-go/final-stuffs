@@ -14,7 +14,7 @@ import sys
 class CNN:
     def __init__(self):
         self.nn = []
-        self.g = {ConvLayer: 2, MaxPool:0, ReluLayer:0, SoftMaxLayer:0, Fc:2, BN_layer:2, DropoutLayer:0}
+        self.g = {ConvLayer: 2, MaxPool:0, ReluLayer:0, SoftMaxLayer:0, Fc:2, BN_layer:2, GlobalAveragePool:0}
 
     def get_batches(self, x, y, k): 
         p = cp.random.permutation(x.shape[0])
@@ -26,8 +26,8 @@ class CNN:
         
         return x.reshape(-1, k, x.shape[1], x.shape[2], x.shape[3]), y.reshape(-1, k, y.shape[1])
 
-    def add_dropout_layer(self, p=0):
-        self.nn.append(DropoutLayer(p))
+    def add_global_pool_layer(self):
+        self.nn.append(GlobalAveragePool())
 
     def add_bn_layer(self, exp_shape):
         self.nn.append(BN_layer(exp_shape))
@@ -411,15 +411,16 @@ if __name__ == "__main__":
     c.add_bn_layer((128, 14, 14))
     c.add_pool_layer()
 
-    c.add_fc_layer(6272, 3136, 1)
+    c.add_conv_layer(3, 256, 1, 1, 128)
     c.add_relu_layer()
-    c.add_bn_layer((3136,))
+    c.add_bn_layer((256, 7, 7))
 
-    c.add_fc_layer(3136, 3136)
+    c.add_conv_layer(3, 512, 1, 1, 256)
     c.add_relu_layer()
-    c.add_bn_layer((3136,))
+    c.add_bn_layer((512, 7, 7))
+    c.add_global_pool_layer()
 
-    c.add_fc_layer(3136, 120)
+    c.add_fc_layer(512, 120, 1)
     c.add_softmax_layer()
 
 
@@ -437,7 +438,7 @@ if __name__ == "__main__":
     #cProfile.run('c.sgd(1, tx, ty, vx, vy, e0=1e-3, wd=1e-8, k=2500)')
 
     with cp.cuda.profile() as p:
-        cProfile.run('j, jv = c.adam_momentum(40, tx, ty, vx, vy, e=1e-3, wd=1e-5, k=1000)')
+        cProfile.run('j, jv = c.adam_momentum(70, tx, ty, vx, vy, e=1e-3, wd=1e-9, k=1000)')
 
     print(p)
 

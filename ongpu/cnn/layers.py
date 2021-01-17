@@ -1,31 +1,37 @@
-import cupy as cp
-import cupyx
 import copy
 import sys
 
-class DropoutLayer():
-    def __init__(self, p=0):
-        assert 0 >= p < 1
-        self.p = p
-        self.mem = [None]
+import cupy as cp
+import cupyx
 
+
+class GlobalAveragePool():
+    def __init__(self):
+        pass
+    
     def forward(self, x):
-        drop = cp.random.normal(loc=self.p, size=x.shape, dtype='float32')
-        self.mem = drop
+        n, c, w, h = x.shape
+        x = x.reshape(n, c, w * h)
+        o = cp.mean(x, axis=2, dtype='float32').reshape((n, c, 1, 1))
 
-        x = x * drop
-        
-        return x
+        self.mem = n, c, w, h
+
+        return o
 
     def backprop(self, do):
-        drop = self.mem
+        n, c, w, h = self.mem
+        pn, pc, pw, ph = do.shape
+        #do = do.reshape((pn, pc))
+
+        dx = cp.zeros((n, c, w, h))
+        dx[::] = do
+
         self.mem = [None]
 
-        return do / drop
+        return dx / (w * h)
 
     def update(self, wd):
         pass
-
 
 class BN_layer():
     def __init__(self, exp_shape):

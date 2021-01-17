@@ -77,3 +77,12 @@ dataset_path = "C:\\Users\\yaniv\\Documents\\datasets\\dog-breed\\"
 with open(dataset_path + 'breed-dict.pickle', 'rb') as f:
     breeds = pickle.load(f)
 
+a = GlobalAveragePool()
+
+
+
+x = cp.arange(2 * 3* 4 * 4).reshape((2, 3, 4, 4))
+print('x is: ', x)
+do = a.forward(x)
+print('\n\nx forward: ', do)
+print('\n\ndo back: ', a.backprop(do))
