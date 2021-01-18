@@ -420,7 +420,7 @@ if __name__ == "__main__":
     first_res_block.append(BN_layer((16, 224, 224)))
     first_res_block.append(ConvLayer(amount=16, channels=16))
     
-    c.add_res_block(*first_res_block)
+    #c.add_res_block(*first_res_block)
     del first_res_block
 
     c.add_relu_layer()
@@ -433,7 +433,7 @@ if __name__ == "__main__":
     second_res_block.append(BN_layer((32, 112, 112)))
     second_res_block.append(ConvLayer(amount=32, channels=32))
 
-    c.add_res_block(*second_res_block)
+    #c.add_res_block(*second_res_block)
     del second_res_block
 
     c.add_relu_layer()
@@ -535,7 +535,7 @@ if __name__ == "__main__":
     #cProfile.run('c.sgd(1, tx, ty, vx, vy, e0=1e-3, wd=1e-8, k=2500)')
     with open('file', 'w') as f:
         #cProfile.run('j, jv = c.adam_momentum(1, tx[::], ty[::], vx[::], vy[::], e=1e-5, wd=1e-9, k=1000)', f)
-        j, jv = c.adam_momentum(20, tx[::], ty[::], vx[::], vy[::], e=1e-4, wd=0, k=1000)
+        j, jv = c.adam_momentum(20, tx[::], ty[::], vx[::], vy[::], e=1e-4, wd=0, k=32)
 
     with open('model-12-01.pickle', 'wb') as f:
         pickle.dump(c, f)
