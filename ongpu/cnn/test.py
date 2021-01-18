@@ -77,12 +77,11 @@ dataset_path = "C:\\Users\\yaniv\\Documents\\datasets\\dog-breed\\"
 with open(dataset_path + 'breed-dict.pickle', 'rb') as f:
     breeds = pickle.load(f)
 
-a = GlobalAveragePool()
+x = cp.arange(2 * 3 * 5 * 5).reshape((2, 3, 5, 5))
 
+res_block = ResidualBlock(BN_layer((3, 5, 5)), ConvLayer(amount=3, channels=3), BN_layer((3, 5, 5)), ConvLayer(amount=3, channels=3))
 
-
-x = cp.arange(2 * 3* 4 * 4).reshape((2, 3, 4, 4))
-print('x is: ', x)
-do = a.forward(x)
-print('\n\nx forward: ', do)
-print('\n\ndo back: ', a.backprop(do))
+print ('input : ', x)
+o = res_block.forward(x)
+print('\n\nforward: ', o)
+print('\n\nback: ', res_block.backprop(o))

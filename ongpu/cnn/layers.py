@@ -1,13 +1,36 @@
 import copy
 import sys
-
 import cupy as cp
 import cupyx
 
+class ResidualBlock():
+    def __init__(self, *layers):
+        assert len(layers) > 1
+        self.g = {ConvLayer: 2, MaxPool:0, ReluLayer:0, SoftMaxLayer:0, Fc:2, BN_layer:2, GlobalAveragePool:0}
+        self.layers = layers
+        self.amount_of_gradients = [self.g[type(l)] for l in layers]
+
+    def forward(self, x):
+        o = x
+        for l in self.layers:
+            o = l.forward(o)
+
+        return o + x
+    
+    def backprop(self, do):
+        mem = do
+
+        for l in self.layers[::-1]:
+            do = l.backprop(do)
+
+        return do + mem
+    
+    def update(self, wd):
+        pass
 
 class GlobalAveragePool():
     def __init__(self):
-        pass
+        self.amount_of_gradients = 0
     
     def forward(self, x):
         n, c, w, h = x.shape
@@ -20,7 +43,6 @@ class GlobalAveragePool():
 
     def backprop(self, do):
         n, c, w, h = self.mem
-        pn, pc, pw, ph = do.shape
         #do = do.reshape((pn, pc))
 
         dx = cp.zeros((n, c, w, h))
@@ -28,7 +50,7 @@ class GlobalAveragePool():
 
         self.mem = [None]
 
-        return dx / (w * h)
+        return dx
 
     def update(self, wd):
         pass
@@ -36,6 +58,9 @@ class GlobalAveragePool():
 class BN_layer():
     def __init__(self, exp_shape):
         assert isinstance(exp_shape, tuple)
+        self.prev_shape = exp_shape
+        self.amount_of_gradients = 2
+
         if len(exp_shape) == 1: 
             self.forward = self.forward_prev_fc
             self.backprop = self.back_prev_fc
@@ -149,7 +174,8 @@ class BN_layer():
         self.mem = [None]
      
 class SoftMaxLayer():
-    def __init(self):
+    def __init__(self):
+        self.amount_of_gradients = 0
         self.mem = [None]
 
     def forward(self, x):
@@ -173,6 +199,7 @@ class SoftMaxLayer():
 
 class ReluLayer():
     def __init__(self):
+        self.amount_of_gradients = 0
         self.mem = [None]
 
     def forward(self, x):
@@ -196,6 +223,7 @@ class ReluLayer():
 
 class Fc():
     def __init__(self, row, column, prev_shape=0):
+        self.amount_of_gradients = 2
         self.prev_shape = prev_shape
         self.row = row
         self.col = column
@@ -247,6 +275,7 @@ class Fc():
 
 class MaxPool():
     def __init__(self, size=2, stride=2, paddding=0):
+        self.amount_of_gradients = 0
         self.ks = size
         self.s = stride
         self.p = paddding
@@ -293,6 +322,7 @@ class MaxPool():
 
 class ConvLayer:
     def __init__(self, size=3, amount=2, pad=1, stride=1, channels=1):
+        self.amount_of_gradients = 2
         self.ks = size ; self.p = pad ; self.s = stride 
         self.a = amount ; self.c = channels
 
@@ -307,6 +337,10 @@ class ConvLayer:
 
         k_col = self.k.reshape(self.a, -1)
 
+        if self.a == 512 and self.c == 512:
+            #print(k_col, '\n\n\n\n')
+            pass
+
         xcol = im2col(x, self.ks, self.ks, self.p, self.s)
         o = k_col @ xcol + self.b
 
@@ -314,7 +348,7 @@ class ConvLayer:
         o = o.transpose(3, 0, 1, 2)
 
         self.mem = x.shape, xcol
-
+        
         return o
     
     def backprop(self, do):
@@ -323,6 +357,11 @@ class ConvLayer:
 
         do = do.transpose(1, 2, 3, 0).reshape(self.a, -1)
         dw = do @ self.mem[1].T
+
+        if self.a == 512 and self.c == 512:
+            #print(dw)
+            pass
+
         dw = dw.reshape(self.k.shape)
 
         k_col = self.k.reshape(self.a, -1)

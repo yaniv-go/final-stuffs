@@ -26,6 +26,9 @@ class CNN:
         
         return x.reshape(-1, k, x.shape[1], x.shape[2], x.shape[3]), y.reshape(-1, k, y.shape[1])
 
+    def add_res_block(self, *args):
+        self.nn.append(ResidualBlock(*args))
+
     def add_global_pool_layer(self):
         self.nn.append(GlobalAveragePool())
 
@@ -305,9 +308,20 @@ class CNN:
         return j, jv
 
     def adam_momentum(self, epochs, xb, yb, xv, yv, e=0.01, wd=0.01, k=32, d=0.999, m=0.9):
-        rr = [cp.array([0] * self.g[type(x)], dtype='float32') for x in self.nn]
-        ss = [cp.array([0] * self.g[type(x)], dtype='float32') for x in self.nn]
-        
+        rr = []
+        ss = []
+
+        for layer in self.nn:
+            if isinstance(layer.amount_of_gradients, list):
+                a = []
+                for l in layer.layers:
+                    a.append(cp.array([0] * l.amount_of_gradients, dtype='float32'))
+                rr.append(copy.deepcopy(a))
+                ss.append(copy.deepcopy(a))
+            else:
+                rr.append(cp.array([0] * layer.amount_of_gradients, dtype='float32'))
+                ss.append(cp.array([0] * layer.amount_of_gradients, dtype='float32'))
+
         j, jv = [], []
         best = cp.inf
 
@@ -330,25 +344,37 @@ class CNN:
                 t += 1
 
                 for l, i in zip(self.nn, range(len(ss))):
-                    ss[i] = [m * c + (1 - m) * dx for c, dx in zip(ss[i], l.mem)]
-                    rr[i] = [d * c + (1 - d) * dx * dx for c, dx in zip(rr[i], l.mem)]
+                    if not type(l) ==  ResidualBlock:
+                        ss[i] = [m * c + (1 - m) * dx for c, dx in zip(ss[i], l.mem)]
+                        rr[i] = [d * c + (1 - d) * dx * dx for c, dx in zip(rr[i], l.mem)]
 
-                    a = 1 - cp.power(m, t)
-                    sh = [m * (c / a) + (1-m) * dx / a for c, dx in zip(ss[i], l.mem)]
-                    
-                    a = 1 - cp.power(d, t)
-                    rh = [c / a for c in rr[i]]
+                        a = 1 - cp.power(m, t)
+                        sh = [m * (c / a) + (1-m) * dx / a for c, dx in zip(ss[i], l.mem)]
+                        
+                        a = 1 - cp.power(d, t)
+                        rh = [c / a for c in rr[i]]
 
-                    l.mem = [(y / (cp.sqrt(x) + 1e-9)) * e for y, x in zip(sh, rh)] 
-                    l.update(wd * e)
+                        l.mem = [(y / (cp.sqrt(x) + 1e-9)) * e for y, x in zip(sh, rh)] 
+                        l.update(wd * e)
+                    else:
+                        for index in range(len(ss[i])):  
+                            ss[i][index] = [m * c + (1 - m) * dx for c, dx in zip(ss[i][index], l.layers[index].mem)]
+                            rr[i][index] = [d * c + (1 - d) * dx * dx for c, dx in zip(rr[i][index], l.layers[index].mem)]
 
-            validate = [self.cost(self.forward(xv[1]), yv[1]), self.cost(self.forward(xv[0]), yv[0])]
-            for a, b in zip(xv[2:], yv[2:]):
-                c = self.cost(self.forward(a), b)
-                validate.append(c)
-            
-            jv.append(np.sum(validate) / len(validate))
-            print(tm - time.time())
+                            a = 1 - cp.power(m, t)
+                            sh = [m * (c / a) + (1-m) * dx / a for c, dx in zip(ss[i][index], l.layers[index].mem)]
+                            
+                            a = 1 - cp.power(d, t)
+                            rh = [c / a for c in rr[i][index]]
+
+                            l.layers[index].mem = [(y / (cp.sqrt(x) + 1e-9)) * e for y, x in zip(sh, rh)] 
+                            
+
+                            l.layers[index].update(wd * e)
+
+            for a, b in zip(xv, yv):
+                jv.append(self.cost(self.forward(a), b))
+            print(time.time() - tm)
 
         return j, jv
 
@@ -386,43 +412,114 @@ def get_cnn(f):
 
 if __name__ == "__main__":
     c = CNN()
-    c.add_conv_layer(3, 32, 1, 1, 3)
-    c.add_relu_layer()
-    c.add_bn_layer((32, 224, 224))
-    c.add_pool_layer()
 
-    c.add_conv_layer(3, 32, 1, 1, 32)
+    c.add_conv_layer(size=3, amount=16, channels=3)
+    
+    first_res_block = []
+    first_res_block.append(ReluLayer())
+    first_res_block.append(BN_layer((16, 224, 224)))
+    first_res_block.append(ConvLayer(amount=16, channels=16))
+    
+    c.add_res_block(*first_res_block)
+    del first_res_block
+
+    c.add_relu_layer()
+    c.add_bn_layer((16, 224, 224))
+    c.add_pool_layer()
+    c.add_conv_layer(amount=32, channels=16)
+
+    second_res_block = []
+    second_res_block.append(ReluLayer())
+    second_res_block.append(BN_layer((32, 112, 112)))
+    second_res_block.append(ConvLayer(amount=32, channels=32))
+
+    c.add_res_block(*second_res_block)
+    del second_res_block
+
     c.add_relu_layer()
     c.add_bn_layer((32, 112, 112))
     c.add_pool_layer()
+    c.add_conv_layer(amount=64, channels=32)
 
-    c.add_conv_layer(3, 64, 1, 1, 32)
+    """
+    c.add_relu_layer()
+    c.add_bn_layer((64, 56, 56))
+    c.add_conv_layer(amount=64, channels=64)
+    """
+
+    third_res_block = []
+    third_res_block.append(ReluLayer())
+    third_res_block.append(BN_layer((64, 56, 56)))
+    third_res_block.append(ConvLayer(amount=64, channels=64))
+
+    c.add_res_block(*third_res_block)
+    del third_res_block
+
     c.add_relu_layer()
     c.add_bn_layer((64, 56, 56))
     c.add_pool_layer()
+    c.add_conv_layer(amount=128, channels=64)
+    
+    """
+    c.add_relu_layer()
+    c.add_bn_layer((128, 28, 28))
+    c.add_conv_layer(amount=128, channels=128)
+    """
 
-    c.add_conv_layer(3, 128, 1, 1, 64)
+
+    fourth_res_block = []
+    fourth_res_block.append(ReluLayer())
+    fourth_res_block.append(BN_layer((128, 28, 28)))
+    fourth_res_block.append(ConvLayer(amount=128, channels=128))
+
+    c.add_res_block(*fourth_res_block)
+    del fourth_res_block
+
     c.add_relu_layer()
     c.add_bn_layer((128, 28, 28))
     c.add_pool_layer()
+    c.add_conv_layer(amount=256, channels=128)
+    
 
-    c.add_conv_layer(3, 128, 1, 1, 128)
+    """
     c.add_relu_layer()
-    c.add_bn_layer((128, 14, 14))
+    c.add_bn_layer((256, 14, 14))
+    c.add_conv_layer(amount=256, channels=256)
+    """
+
+    fifth_res_block = []
+    fifth_res_block.append(ReluLayer())
+    fifth_res_block.append(BN_layer((256, 14, 14)))
+    fifth_res_block.append(ConvLayer(amount=256, channels=256))
+
+    c.add_res_block(*fifth_res_block)
+    del fifth_res_block
+
+    c.add_relu_layer()
+    c.add_bn_layer((256, 14, 14))
     c.add_pool_layer()
-
-    c.add_conv_layer(3, 256, 1, 1, 128)
+    c.add_conv_layer(amount=512, channels=256)
+    
+    """
     c.add_relu_layer()
-    c.add_bn_layer((256, 7, 7))
+    c.add_bn_layer((512, 7, 7))
+    c.add_conv_layer(amount=512, channels=512)
+    """
 
-    c.add_conv_layer(3, 512, 1, 1, 256)
+    sixth_res_block = []
+    sixth_res_block.append(ReluLayer())
+    sixth_res_block.append(BN_layer((512, 7, 7)))
+    sixth_res_block.append(ConvLayer(amount=512, channels=512))
+
+    c.add_res_block(*sixth_res_block)
+    del sixth_res_block
+
     c.add_relu_layer()
     c.add_bn_layer((512, 7, 7))
     c.add_global_pool_layer()
 
     c.add_fc_layer(512, 120, 1)
     c.add_softmax_layer()
-
 
     dataset_path = "C:\\Users\\yaniv\\Documents\\datasets\\dog-breed\\"
     x, y = get_dogs(dataset_path)
@@ -436,11 +533,9 @@ if __name__ == "__main__":
     (tx, ty), (vx, vy) = (xb[:n], yb[:n]), (xb[n:], yb[n:])
 
     #cProfile.run('c.sgd(1, tx, ty, vx, vy, e0=1e-3, wd=1e-8, k=2500)')
-
-    with cp.cuda.profile() as p:
-        cProfile.run('j, jv = c.adam_momentum(70, tx, ty, vx, vy, e=1e-3, wd=1e-9, k=1000)')
-
-    print(p)
+    with open('file', 'w') as f:
+        #cProfile.run('j, jv = c.adam_momentum(1, tx[::], ty[::], vx[::], vy[::], e=1e-5, wd=1e-9, k=1000)', f)
+        j, jv = c.adam_momentum(20, tx[::], ty[::], vx[::], vy[::], e=1e-4, wd=0, k=1000)
 
     with open('model-12-01.pickle', 'wb') as f:
         pickle.dump(c, f)
@@ -448,10 +543,10 @@ if __name__ == "__main__":
     y = cp.load(dataset_path + 'labels-and-extra-224.npy')
     
     print('training test: ')
-    c.test(x[:1024].reshape((-1 , 32, 3, 224, 224)), y[:1024].reshape((-1, 16)))
+    c.test(x[:1024].reshape((-1 , 32, 3, 224, 224)), y[:1024].reshape((-1, 32)))
 
     print('validation test: ')
-    c.test(x[-1024:].reshape((-1 , 32, 3, 224, 224)), y[-1024:].reshape((-1, 16)))
+    c.test(x[-1024:].reshape((-1 , 32, 3, 224, 224)), y[-1024:].reshape((-1, 32)))
     
     fig, axs = plt.subplots(2)
     axs[0].plot(range(len(j)), j)
