@@ -3,8 +3,10 @@ import skimage as ski
 import numpy as np
 import cupy as cp
 import pickle
+import time
+import sys
 import os
-import tensorflow as tf
+
 
 
 def get_batches(x, y, k): 
@@ -38,8 +40,8 @@ def get_image_arrays(path, breeds):
     return images, np.array(labels)
 
 def get_ready_batches(path, extra):
-    images = cp.load(path + 'images-224-%s.npy' % (extra))
-    labels = cp.load(path + 'labels-224-%s.npy' % (extra))
+    images = cp.load(path + 'images-224%s.npy' % (extra))
+    labels = cp.load(path + 'labels-224%s.npy' % (extra))
 
     images = images.transpose(0, 3, 1, 2)
 
@@ -51,8 +53,8 @@ def get_ready_batches(path, extra):
     images_and_extra = cp.concatenate((images, images[:156]), axis=0)
     labels_and_extra = cp.concatenate((labels, labels[:156]), axis=0)
 
-    cp.save(dataset_path + "images-extra-224-%s.npy" % (extra), images_and_extra)
-    cp.save(dataset_path + "labels-extra-224-%s.npy" % (extra), labels_and_extra)
+    cp.save(path + "images-extra-224%s.npy" % (extra), images_and_extra)
+    cp.save(path + "labels-extra-224%s.npy" % (extra), labels_and_extra)
 
 def resize_images(dataset_path, size):
     images_path = dataset_path + 'images-224\\'
@@ -187,3 +189,98 @@ dataset_path = "C:\\Users\\yaniv\\Documents\\datasets\\dog-breed\\"
 with open(dataset_path + 'breed-dict.pickle', 'rb') as f:
     breeds = pickle.load(f)
 
+
+all_arrs = ('-flipped', '-flipped-removed', '-removed', '-s&p-noise',
+            '-s&p-noise-flipped')
+
+x = np.load(dataset_path + 'all-images-224.npy')
+y = np.load(dataset_path + 'all-labels-224.npy')
+
+for i in range(60):
+    p = np.random.permutation(x.shape[0])
+
+    x = x[p]
+    y = y[p]
+
+"""
+get arrays to multiple of 256
+
+get_ready_batches(dataset_path, '-flipped')
+get_ready_batches(dataset_path, '-flipped-removed')
+get_ready_batches(dataset_path, '-removed')
+get_ready_batches(dataset_path, '-s&p-noise')
+get_ready_batches(dataset_path, '-s&p-noise-flipped')
+
+"""
+
+"""
+
+get all image arrays
+
+x, y = get_image_arrays(dataset_path + 'images-224\\', breeds)
+print('done')
+x = np.array(x, dtype='uint8')
+y = np.array(y, dtype='uint8')
+
+print (np.min(x))
+print (np.min(y))
+
+np.save(dataset_path + 'images-224.np', x, allow_pickle=False)
+np.save(dataset_path + 'labels-224.np', y, allow_pickle=False)
+
+del x
+del y
+
+x, y = get_image_arrays(dataset_path + 'images-224-flipped\\', breeds)
+print('done')
+x = np.array(x, dtype='uint8')
+y = np.array(y, dtype='uint8')
+
+np.save(dataset_path + 'images-224-flipped.npy', x, allow_pickle=False)
+np.save(dataset_path + 'labels-224-flipped.npy', y, allow_pickle=False)
+
+del x
+del y
+
+x, y = get_image_arrays(dataset_path + 'images-224-removed\\', breeds)
+
+x = np.array(x, dtype='uint8')
+y = np.array(y, dtype='uint8')
+
+np.save(dataset_path + 'images-224-removed.npy', x, allow_pickle=False)
+np.save(dataset_path + 'labels-224-removed.npy', y, allow_pickle=False)
+
+del x
+del y
+
+x, y = get_image_arrays(dataset_path + 'images-224-flipped-removed\\', breeds)
+x = np.array(x, dtype='uint8')
+y = np.array(y, dtype='uint8')
+
+np.save(dataset_path + 'images-224-flipped-removed.npy', x, allow_pickle=False)
+np.save(dataset_path + 'labels-224-flipped-removed.npy', y, allow_pickle=False)
+
+del x
+del y
+
+x, y = get_image_arrays(dataset_path + 'images-224-s&p-noise\\', breeds)
+
+x = np.array(x, dtype='uint8')
+y = np.array(y, dtype='uint8')
+
+np.save(dataset_path + 'images-224-s&p-noise.npy', x, allow_pickle=False)
+np.save(dataset_path + 'labels-224-s&p-noise.npy', y, allow_pickle=False)
+
+del x
+del y
+
+x, y = get_image_arrays(dataset_path + 'images-224-s&p-noise-flipped\\', breeds)
+x = np.array(x, dtype='uint8')
+y = np.array(y, dtype='uint8')
+
+np.save(dataset_path + 'images-224-s&p-noise-flipped.npy', x, allow_pickle=False)
+np.save(dataset_path + 'labels-224-s&p-noise-flipped.npy', y, allow_pickle=False)
+
+del x
+del y
+"""
