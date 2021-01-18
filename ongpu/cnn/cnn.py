@@ -334,7 +334,9 @@ class CNN:
             for n in range(xb.shape[0]):
                 p = np.random.randint(xb.shape[0] - 1)
 
-                xt, yt = cp.array(xb[p], dtype='float32'), cp.array(yb[p], dtype='float32')
+                xt, yt = cp.array(xb[p], dtype='float32') / 255, cp.array(yb[p], dtype='float32')\
+                
+
 
                 o = self.forward(xt)
                 cost = self.cost(o, yt)
@@ -373,6 +375,8 @@ class CNN:
                             l.layers[index].update(wd * e)
 
             for a, b in zip(xv, yv):
+                a = cp.array(a, dtype='float32')
+                b = cp.array(b)
                 jv.append(self.cost(self.forward(a), b))
             print(time.time() - tm)
 
@@ -401,11 +405,11 @@ def get_mnist():
     return tx, ty, vx, vy
 
 def get_dogs(dataset_path):
-    x = np.load(dataset_path + 'images-and-extra-224.npy')
-    y = np.load(dataset_path + 'labels-and-extra-224.npy')
+    x = np.load(dataset_path + 'all-images-224-shuffled.npy')
+    y = np.load(dataset_path + 'all-labels-224-shuffled.npy')
     y = get_one_hot(y, 120)
 
-    return x.astype('float32'), y.astype('float32')
+    return x, y
 
 def get_cnn(f):
     return pickle.load(f)
@@ -451,6 +455,9 @@ if __name__ == "__main__":
     third_res_block.append(ReluLayer())
     third_res_block.append(BN_layer((64, 56, 56)))
     third_res_block.append(ConvLayer(amount=64, channels=64))
+    third_res_block.append(ReluLayer())
+    third_res_block.append(BN_layer((64, 56, 56)))
+    third_res_block.append(ConvLayer(amount=64, channels=64))
 
     c.add_res_block(*third_res_block)
     del third_res_block
@@ -468,6 +475,9 @@ if __name__ == "__main__":
 
 
     fourth_res_block = []
+    fourth_res_block.append(ReluLayer())
+    fourth_res_block.append(BN_layer((128, 28, 28)))
+    fourth_res_block.append(ConvLayer(amount=128, channels=128))
     fourth_res_block.append(ReluLayer())
     fourth_res_block.append(BN_layer((128, 28, 28)))
     fourth_res_block.append(ConvLayer(amount=128, channels=128))
@@ -491,6 +501,9 @@ if __name__ == "__main__":
     fifth_res_block.append(ReluLayer())
     fifth_res_block.append(BN_layer((256, 14, 14)))
     fifth_res_block.append(ConvLayer(amount=256, channels=256))
+    fifth_res_block.append(ReluLayer())
+    fifth_res_block.append(BN_layer((256, 14, 14)))
+    fifth_res_block.append(ConvLayer(amount=256, channels=256))
 
     c.add_res_block(*fifth_res_block)
     del fifth_res_block
@@ -510,6 +523,9 @@ if __name__ == "__main__":
     sixth_res_block.append(ReluLayer())
     sixth_res_block.append(BN_layer((512, 7, 7)))
     sixth_res_block.append(ConvLayer(amount=512, channels=512))
+    sixth_res_block.append(ReluLayer())
+    sixth_res_block.append(BN_layer((512, 7, 7)))
+    sixth_res_block.append(ConvLayer(amount=512, channels=512))
 
     c.add_res_block(*sixth_res_block)
     del sixth_res_block
@@ -518,13 +534,15 @@ if __name__ == "__main__":
     c.add_bn_layer((512, 7, 7))
     c.add_global_pool_layer()
 
-    c.add_fc_layer(512, 120, 1)
+    c.add_fc_layer(512, 512, 1)
+    c.add_relu_layer()
+    c.add_bn_layer((512,))
+
+    c.add_fc_layer(512, 120, 0)
     c.add_softmax_layer()
 
     dataset_path = "C:\\Users\\yaniv\\Documents\\datasets\\dog-breed\\"
     x, y = get_dogs(dataset_path)
-
-    x = x / 255
 
     xb = x.reshape((-1, 32, 3, 224, 224))
     yb = y.reshape((-1, 32, 120))

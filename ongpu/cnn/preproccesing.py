@@ -135,8 +135,8 @@ def noisy(noise_typ,image):
       return noisy
 
 def add_noise(dataset_path, noise):
-    images_path = dataset_path + 'images-224-flipped\\'
-    images_resized_path = dataset_path + 'images-224-%s-noise-flipped\\' % (noise)
+    images_path = dataset_path + 'images-224\\'
+    images_resized_path = dataset_path + 'images-224-%s-noise\\' % (noise)
 
     os.mkdir(images_resized_path)
 
@@ -193,37 +193,52 @@ with open(dataset_path + 'breed-dict.pickle', 'rb') as f:
 all_arrs = ('-flipped', '-flipped-removed', '-removed', '-s&p-noise',
             '-s&p-noise-flipped')
 
-x = np.load(dataset_path + 'all-images-224.npy')
-y = np.load(dataset_path + 'all-labels-224.npy')
 
-for i in range(60):
+get_ready_batches(dataset_path, '')
+
+
+
+
+x = np.load(dataset_path + 'all_images.npy')
+y = np.load(dataset_path + 'all_labels.npy')
+
+print(x.shape)
+print(y.shape)
+
+for i in range(50):
     p = np.random.permutation(x.shape[0])
-
     x = x[p]
     y = y[p]
 
-"""
-get arrays to multiple of 256
+np.save('all-images-shuffled', x)
+np.save('all-labels-shuffled', y)
 
+"""
+np.save(dataset_path + 'all-images-224-shuffled.npy', x)
+np.save(dataset_path + 'all-labels-224-shuffled.npy', y)
+"""
+
+
+#get arrays to multiple of 256
+
+"""
 get_ready_batches(dataset_path, '-flipped')
 get_ready_batches(dataset_path, '-flipped-removed')
 get_ready_batches(dataset_path, '-removed')
 get_ready_batches(dataset_path, '-s&p-noise')
 get_ready_batches(dataset_path, '-s&p-noise-flipped')
-
 """
 
+
+#get all image arrays
+
+
 """
-
-get all image arrays
-
 x, y = get_image_arrays(dataset_path + 'images-224\\', breeds)
-print('done')
 x = np.array(x, dtype='uint8')
 y = np.array(y, dtype='uint8')
 
-print (np.min(x))
-print (np.min(y))
+print(x.shape)
 
 np.save(dataset_path + 'images-224.np', x, allow_pickle=False)
 np.save(dataset_path + 'labels-224.np', y, allow_pickle=False)
@@ -236,6 +251,8 @@ print('done')
 x = np.array(x, dtype='uint8')
 y = np.array(y, dtype='uint8')
 
+print(x.shape)
+
 np.save(dataset_path + 'images-224-flipped.npy', x, allow_pickle=False)
 np.save(dataset_path + 'labels-224-flipped.npy', y, allow_pickle=False)
 
@@ -243,9 +260,10 @@ del x
 del y
 
 x, y = get_image_arrays(dataset_path + 'images-224-removed\\', breeds)
-
 x = np.array(x, dtype='uint8')
 y = np.array(y, dtype='uint8')
+
+print(x.shape)
 
 np.save(dataset_path + 'images-224-removed.npy', x, allow_pickle=False)
 np.save(dataset_path + 'labels-224-removed.npy', y, allow_pickle=False)
@@ -257,26 +275,34 @@ x, y = get_image_arrays(dataset_path + 'images-224-flipped-removed\\', breeds)
 x = np.array(x, dtype='uint8')
 y = np.array(y, dtype='uint8')
 
+print(x.shape)
+
 np.save(dataset_path + 'images-224-flipped-removed.npy', x, allow_pickle=False)
 np.save(dataset_path + 'labels-224-flipped-removed.npy', y, allow_pickle=False)
 
 del x
 del y
-
+"""
+"""
 x, y = get_image_arrays(dataset_path + 'images-224-s&p-noise\\', breeds)
 
 x = np.array(x, dtype='uint8')
 y = np.array(y, dtype='uint8')
+
+print(x.shape)
 
 np.save(dataset_path + 'images-224-s&p-noise.npy', x, allow_pickle=False)
 np.save(dataset_path + 'labels-224-s&p-noise.npy', y, allow_pickle=False)
 
 del x
 del y
-
+"""
+"""
 x, y = get_image_arrays(dataset_path + 'images-224-s&p-noise-flipped\\', breeds)
 x = np.array(x, dtype='uint8')
 y = np.array(y, dtype='uint8')
+
+print(x.shape)
 
 np.save(dataset_path + 'images-224-s&p-noise-flipped.npy', x, allow_pickle=False)
 np.save(dataset_path + 'labels-224-s&p-noise-flipped.npy', y, allow_pickle=False)
