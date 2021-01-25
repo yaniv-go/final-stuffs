@@ -51,7 +51,7 @@ def col2im(cols, x_shape, field_height=3, field_width=3, padding=1,
 
 class Relu():
     def __init__(self, optimizer):
-        optimizers = {'nadam' : self.adam_momentum, 'sgd-m' : self.sgd_momentum}
+        optimizers = {'nadam' : self.adam_momentum, 'sgd' : self.sgd_momentum}
         self.mem = [None]
         self.optimizer = optimizers[optimizer]
     
@@ -74,8 +74,9 @@ class Relu():
         pass
 
 class Softmax():
+    # maybe change to have cost types as optimizers 
     def __init__(self, optimizer):
-        optimizers = {'nadam' : self.adam_momentum, 'sgd-m' : self.sgd_momentum}
+        optimizers = {'nadam' : self.adam_momentum, 'sgd' : self.sgd_momentum}
         self.mem = [None]
         self.optimizer = optimizers[optimizer]
 
@@ -100,9 +101,9 @@ class Softmax():
 
 class Fc():
     def __init__(self, row, col, optimizer, bias=None):
-        optimizers = {'nadam' : self.adam_momentum, 'sgd-m' : self.sgd_momentum}
+        optimizers = {'nadam' : self.adam_momentum, 'sgd' : self.sgd_nesterov_momentum}
 
-        self.w = (cp.random.rand(row, col) * cp.sqrt(2./col)).astype('float32')
+        self.w = (cp.random.uniform(-1, 1, (row, col)) * cp.sqrt(2./col)).astype('float32')
         self.bias = bias
         if bias: self.b = cp.zeros(col).astype('float32')
         self.mem = [None]
@@ -147,18 +148,18 @@ class Fc():
     def adam_momentum(self, e, t, d1=0.9, d2=0.999, wd=0):
         if self.bias:
             try:
-                self.first_arm == 'hello'
+                self.first_arm[0]
             except AttributeError:
                 self.first_arm = [cp.zeros_like(gradient, dtype='float32') for gradient in self.mem]
             finally:
                 self.first_arm = [m * d1 + (1 - d1) * gradient for m, gradient in zip(self.first_arm, self.mem)]
 
             try:
-                self.second_arm == 'hello'
+                self.second_arm[0]
             except AttributeError:
                 self.second_arm = [cp.zeros_like(gradient, dtype='float32') for gradient in self.mem]
             finally:
-                self.second_arm = [m * d2 + (1 - d2) * gradient ** 2 for m, gradient in zip(self.second_arm, self.mem)]
+                self.second_arm = [m * d2 + (1 - d2) * (gradient ** 2) for m, gradient in zip(self.second_arm, self.mem)]
 
             first_stabilize = 1 - cp.power(d1, t)
             second_stabilize = 1 - cp.power(d2, t)
@@ -166,10 +167,57 @@ class Fc():
             first_arm_norm = [(m * d1) / first_stabilize + ((1 - d1) * gradient) / first_stabilize for m, gradient in (zip(self.first_arm, self.mem))]
             second_arm_norm = [(m * d2) / second_stabilize for m in self.second_arm]
 
-            gradients = [e * m / (cp.sqrt(n + 1e-9)) for m, n in zip(first_arm_norm, second_arm_norm)]
+            gradients = [(e * m) / (cp.sqrt(n + 1e-9)) for m, n in zip(first_arm_norm, second_arm_norm)]
 
             self.mem = gradients
+        else:
+            gradient = self.mem
+            try:
+                self.first_arm[0]
+            except AttributeError:
+                self.first_arm = cp.zeros_like(gradient, dtype='float32')
+            finally:
+                self.first_arm = self.first_arm * d1 + (1 - d1) * self.mem
             
+            try:
+                self.second_arm[0]
+            except AttributeError:
+                self.second_arm = cp.zeros_like(gradient, dtype='float32')
+            finally:
+                self.second_arm = self.second_arm * d2 + (1 - d2) * (gradient ** 2)
+            
+            first_stabilize = 1 - cp.power(d1, t)
+            second_stabilize = 1 - cp.power(d2, t)
 
-    def sgd_momentum(self, e, m=0.9, wd=0):
-        pass
+            first_arm_norm = (self.first_arm * d1) / first_stabilize + ((1 - d1) * gradient) / first_stabilize
+            second_arm_norm = (self.second_arm * d2) / second_stabilize
+
+            gradient = (e * first_arm_norm) / cp.sqrt(second_arm_norm + 1e-9)
+
+            self.mem = gradient
+
+    def sgd_nesterov_momentum(self, e, d1=0.9, wd=0):
+        if self.bias:
+            try:
+                self.momentum[0]
+            except AttributeError:
+                self.momentum = [cp.zeros_like(gradient, dtype='float32') for gradient in self.mem]
+            finally:
+                self.momentum = [d1 * m + e * gradient for m, gradient in zip(self.momentum, self.mem)]
+            
+            gradients = [d1 * m + e * gradient for m, gradient in zip(self.momentum, self.mem)]
+
+            self.mem = gradients
+        else:
+            gradient = self.mem
+            
+            try:
+                self.momentum[0]
+            except AttributeError:
+                self.momentum = cp.zeros_like(gradient, dtype='float32')
+            finally:
+                self.momentum = d1 * self.momentum + e * gradient
+            
+            gradient = d1 * self.momentum + e * gradient
+
+            self.mem = gradient

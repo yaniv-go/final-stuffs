@@ -77,16 +77,17 @@ def resize_images(dataset_path, size):
 dataset_path = "C:\\Users\\yaniv\\Documents\\datasets\\dog-breed\\"
 
 
-fc = layers.Fc(3 * 3 * 2, 3, 'nadam', 1)
+fc = layers.Fc(3 * 3 * 2, 3, 'sgd', 0)
 x = cp.arange(5 * 3 * 2 * 3).reshape((5, 2, 3, 3))
 o = fc.forward(x)
 
-o[0, 0] = -1
-relu = layers.Relu('nadam')
+o[:, 0] = -1
+relu = layers.Relu('sgd')
 o = relu.forward(o)
 
 do = o
 do = relu.bprop(do)
+print(do)
 do = fc.bprop(do)
 
-fc.optimizer(0.01, 1)
+fc.optimizer(0.01)
