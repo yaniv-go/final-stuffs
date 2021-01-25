@@ -1,2 +1,7 @@
 .vscode\settings.json
 ongpu/cnn/model-12-01.pickle
+ongpu/cnn/chi.jpg
+*.jpg
+ongpu/cnn/chi.txt
+ongpu/cnn/table.txt
+ongpu/cnn/tiger.txt
