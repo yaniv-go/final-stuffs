@@ -596,10 +596,10 @@ if __name__ == "__main__":
     c.add_fc_layer(1024, 120, 0)
     c.add_softmax_layer()
 
-    dataset_path = "C:\\Users\\yaniv\\Documents\\datasets\\dog-breed\\"
+    dataset_path = "/home/yaniv/dog-breed/"
     x, y = get_dogs(dataset_path)
-    xb = x.reshape((-1, 32, 3, 224, 224))
-    yb = y.reshape((-1, 32, 120))
+    xb = x.reshape((-1, 16, 3, 224, 224))
+    yb = y.reshape((-1, 16, 120))
 
     n = int(xb.shape[0] * 0.7)
     (tx, ty), (vx, vy) = (xb[:n], yb[:n]), (xb[n:], yb[n:])
@@ -615,10 +615,10 @@ if __name__ == "__main__":
     y = cp.load(dataset_path + 'all-labels-shuffled.npy')
     
     print('training test: ')
-    c.test(x[:2048].reshape((-1 , 32, 3, 224, 224)), y[:2048].reshape((-1, 32)))
+    c.test(x[:2048].reshape((-1 , 16, 3, 224, 224)), y[:2048].reshape((-1, 16)))
 
     print('validation test: ')
-    c.test(x[-2048:].reshape((-1 , 32, 3, 224, 224)), y[-2048:].reshape((-1, 32)))
+    c.test(x[-2048:].reshape((-1 , 16, 3, 224, 224)), y[-2048:].reshape((-1, 16)))
 
     fig, axs = plt.subplots(2)
     axs[0].plot(range(len(j)), j)
