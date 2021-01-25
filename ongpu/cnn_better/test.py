@@ -2,13 +2,14 @@ import timeit
 import time
 import cupy as cp
 import numpy as np
-from layers import *
+import layers_better as layers
+#from layers import *
 from PIL import Image
 import pandas as pd
 import pickle
 import cProfile
 import os
-import cnn
+#import cnn
 
 def get_batches(x, y, k): 
     p = np.random.permutation(x.shape[0])
@@ -76,5 +77,16 @@ def resize_images(dataset_path, size):
 dataset_path = "C:\\Users\\yaniv\\Documents\\datasets\\dog-breed\\"
 
 
-a = cp.arange(50)
-print(cp.greater(a, 15))
+fc = layers.Fc(3 * 3 * 2, 3, 'nadam', 1)
+x = cp.arange(5 * 3 * 2 * 3).reshape((5, 2, 3, 3))
+o = fc.forward(x)
+
+o[0, 0] = -1
+relu = layers.Relu('nadam')
+o = relu.forward(o)
+
+do = o
+do = relu.bprop(do)
+do = fc.bprop(do)
+
+fc.optimizer(0.01, 1)
