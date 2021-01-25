@@ -1,4 +1,5 @@
 import timeit
+import time
 import cupy as cp
 import numpy as np
 from layers import *
@@ -74,14 +75,9 @@ def resize_images(dataset_path, size):
 
 dataset_path = "C:\\Users\\yaniv\\Documents\\datasets\\dog-breed\\"
 
-with open(dataset_path + 'breed-dict.pickle', 'rb') as f:
-    breeds = pickle.load(f)
 
-x = cp.arange(2 * 3 * 5 * 5).reshape((2, 3, 5, 5))
-
-res_block = ResidualBlock(BN_layer((3, 5, 5)), ConvLayer(amount=3, channels=3), BN_layer((3, 5, 5)), ConvLayer(amount=3, channels=3))
-
-print ('input : ', x)
-o = res_block.forward(x)
-print('\n\nforward: ', o)
-print('\n\nback: ', res_block.backprop(o))
+x = cp.random.rand(20, 35, 35)
+for xx in x:
+    y = xx.T
+    z = xx @ y
+time.sleep(5)
