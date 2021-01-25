@@ -659,3 +659,28 @@ if a == 'y':
     with open('model-12-01.pickle', 'wb') as f:
         pickle.dump(c, f)
 """
+"""
+dataset_path = "C:\\Users\\yaniv\\Documents\\datasets\\dog-breed\\"
+
+with open(dataset_path + 'breed-dict.pickle', 'rb') as f:
+    breeds = pickle.load(f)
+    breeds = {value : key for key, value in breeds.items()}
+
+with open('model-12-01.pickle', 'rb') as f:
+        c = pickle.load(f)
+
+with open('table.txt', 'w') as f:
+    pic = PIL.Image.open('table.jfif').convert('RGB')
+    pic = cp.array(pic.resize((224, 224)), dtype='float32')
+    pic = pic.transpose(2, 0, 1).reshape((1, 3, 224, 224))
+    mean = pic.mean(axis=(2, 3)).reshape((1, 3, 1, 1))
+    pic -= mean
+    o = c.forward(pic)
+    o = o.ravel()
+
+    f.write('table:\n\n')
+
+    for i in range(o.shape[0]):
+        print(str(o[i]))
+        f.write('%s: %s\n' % (breeds[i], str(o[i])))
+"""
