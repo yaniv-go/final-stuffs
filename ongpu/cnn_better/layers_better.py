@@ -221,3 +221,31 @@ class Fc():
             gradient = d1 * self.momentum + e * gradient
 
             self.mem = gradient
+
+class MaxPool():
+    def __init__(self, kernel_size=2, stride=2, padding=0):
+        self.ks = kernel_size
+        self.stride = stride
+        self.pad = padding
+
+    def forward(self, x):
+        n, c, ph, pw = x.shape
+        h = int(((ph + 2 * self.pad - self.ks) / self.stride) + 1)
+        w = int(((pw + 2 * self.pad - self.ks) / self.stride) + 1)
+
+        x_reshaped = x.reshape(n * c, 1, ph, pw)
+        del x
+
+        print(x_reshaped)
+        print(x_reshaped.shape)
+
+        xcol = im2col(x_reshaped, self.ks, self.ks, self.pad, self.stride)
+        max_idx = cp.argmax(xcol, axis=0)
+
+        out = xcol[max_idx, cp.arange(max_idx.size)]
+        out = out.reshape((h, w, n, c))
+        out = out.transpose(2, 3, 0, 1)
+
+        self.mem = max_idx, xcol.shape, (n, c, ph, pw)
+
+        return out
