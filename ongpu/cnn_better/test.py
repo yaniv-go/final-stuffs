@@ -9,6 +9,7 @@ import pandas as pd
 import pickle
 import cProfile
 import os
+import sys
 #import cnn
 
 def get_batches(x, y, k): 
@@ -76,7 +77,33 @@ def resize_images(dataset_path, size):
 
 dataset_path = "C:\\Users\\yaniv\\Documents\\datasets\\dog-breed\\"
 
+"""
+x = cp.arange(3 * 4 * 4 * 2).reshape((2, 3, 4, 4))
+fc = layers.Fc(3 * 4 * 4, 3, bias=False, optimizer='sgd')
+o = fc.forward(x)
+do = fc.bprop(o)
+print(fc.w, '\n\n\n\n')
+fc.optimizer(0.01, wd=0.01)
+print(fc.w)
 
-maxpool = layers.MaxPool()
-x = cp.arange(4 * 4 * 3 * 2).reshape((2, 3, 4, 4))
-print(maxpool.forward(x))
+sys.exit()
+
+
+
+
+x = cp.arange(3 * 4 * 4 * 2).reshape((2, 3, 4, 4))
+conv = layers.ConvLayer(optimizer='sgd', input_channels=3, output_channels=3, kernel_heigth=3, kernel_width=3, bias=True)
+o = conv.forward(x)
+do = conv.bprop(o)
+print(conv.b, '\n done \n')
+conv.optimizer(0.01, wd=0.01)
+print(conv.b)
+"""
+
+x = cp.arange(4 * 3).reshape((4, 3))
+bn = layers.BatchNorm(3, 'sgd')
+o = bn.forward(x)
+print(bn.gamma)
+bn.bprop(o)
+bn.optimizer(0.01, 0)
+print(bn.gamma)

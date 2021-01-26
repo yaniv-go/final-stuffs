@@ -6,6 +6,7 @@ import sys
 def get_indices(x_shape, field_height, field_width, padding=1, stride=1):
   # First figure out what the size of the output should be
   N, C, H, W = x_shape
+  del N
   assert (H + 2 * padding - field_height) % stride == 0
   assert (W + 2 * padding - field_height) % stride == 0
   out_height = int((H + 2 * padding - field_height) / stride + 1)
@@ -64,9 +65,6 @@ class Relu():
         self.mem = [None]
         return y * do
 
-    def update(self):
-        pass
-
     def adam_momentum(self, e, t, d1=0.9, d2=0.999, wd=0):
         pass
 
@@ -89,9 +87,6 @@ class Softmax():
         de = y - self.mem
         self.mem = [None]
         return de
-    
-    def update(self):
-        pass
 
     def adam_momentum(self, e, t, d1=0.9, d2=0.99, wd=0):
         pass
@@ -100,7 +95,7 @@ class Softmax():
         pass
 
 class Fc():
-    def __init__(self, row, col, optimizer, bias=None):
+    def __init__(self, row, col, optimizer='nadam', bias=True):
         optimizers = {'nadam' : self.adam_momentum, 'sgd' : self.sgd_nesterov_momentum}
 
         self.w = (cp.random.uniform(-1, 1, (row, col)) * cp.sqrt(2./col)).astype('float32')
@@ -132,18 +127,10 @@ class Fc():
         if self.bias:
             db = cp.sum(do, axis=0)
             self.mem = dw / self.mem[0], db / self.mem[0]
-        else: self.mem = dw / self.mem[0]
+        else:
+            self.mem = dw / self.mem[0]
 
         return dx
-    
-    def update(self):
-        if self.bias:
-            self.w -= self.mem[0]
-            self.b -= self.mem[1]
-        else:
-            self.w -= self.mem
-        
-        self.mem = [None]
     
     def adam_momentum(self, e, t, d1=0.9, d2=0.999, wd=0):
         if self.bias:
@@ -169,7 +156,8 @@ class Fc():
 
             gradients = [(e * m) / (cp.sqrt(n + 1e-9)) for m, n in zip(first_arm_norm, second_arm_norm)]
 
-            self.mem = gradients
+            self.w -= (e * wd * self.w + gradients[0])
+            self.b -= (e * wd * self.b + gradients[1])
         else:
             gradient = self.mem
             try:
@@ -194,7 +182,9 @@ class Fc():
 
             gradient = (e * first_arm_norm) / cp.sqrt(second_arm_norm + 1e-9)
 
-            self.mem = gradient
+            self.w -= (e * wd * self.w + gradient)
+
+        self.mem = [None]
 
     def sgd_nesterov_momentum(self, e, d1=0.9, wd=0):
         if self.bias:
@@ -207,7 +197,8 @@ class Fc():
             
             gradients = [d1 * m + e * gradient for m, gradient in zip(self.momentum, self.mem)]
 
-            self.mem = gradients
+            self.w -= (e * wd * self.w + gradients[0])
+            self.b -= (e * wd * self.b + gradients[1])
         else:
             gradient = self.mem
             
@@ -220,13 +211,17 @@ class Fc():
             
             gradient = d1 * self.momentum + e * gradient
 
-            self.mem = gradient
+            self.w -= (e * wd * self.w + gradient)
+
+        self.mem = [None]
 
 class MaxPool():
-    def __init__(self, kernel_size=2, stride=2, padding=0):
+    def __init__(self, optimizer='nadam', kernel_size=2, stride=2, padding=0):
+        optimizers = {'nadam' : self.adam_momentum, 'sgd' : self.sgd_nesterov_momentum}
+        self.optimizer = optimizers[optimizer]
         self.ks = kernel_size
         self.stride = stride
-        self.pad = padding
+        self.pad = padding     
 
     def forward(self, x):
         n, c, ph, pw = x.shape
@@ -236,16 +231,330 @@ class MaxPool():
         x_reshaped = x.reshape(n * c, 1, ph, pw)
         del x
 
-        print(x_reshaped)
-        print(x_reshaped.shape)
-
         xcol = im2col(x_reshaped, self.ks, self.ks, self.pad, self.stride)
         max_idx = cp.argmax(xcol, axis=0)
 
-        out = xcol[max_idx, cp.arange(max_idx.size)]
+        out = xcol[max_idx, cp.arange(max_idx.size, dtype='int8')]
         out = out.reshape((h, w, n, c))
         out = out.transpose(2, 3, 0, 1)
 
         self.mem = max_idx, xcol.shape, (n, c, ph, pw)
 
         return out
+    
+    def bprop(self, do):
+        max_idx, col_shape, (n, c, h, w) = self.mem
+        
+        dxcol = cp.zeros(col_shape, dtype='float32')
+
+        do = do.transpose(2, 3, 0, 1).ravel()
+
+        dxcol[max_idx, cp.arange(max_idx.size)] = do
+
+        dx = col2im(dxcol, (n * c, 1, h, w), self.ks, self.ks, self.pad, self.stride)
+        dx = dx.reshape(n, c, h, w)
+        
+        self.mem = [None]
+
+        return dx
+    
+    def adam_momentum(self, e, t, d1=0.9, d2=0.999, wd=0):
+        pass
+
+    def sgd_nesterov_momentum(self, e, d1=0.9, wd=0):
+        pass
+
+class ConvLayer():                     
+    def __init__(self, optimizer='nadam', kernel_heigth=3, kernel_width=3, output_channels=16, pad=1, stride=1, input_channels=3, bias=True):
+        optimizers = {'nadam' : self.adam_momentum, 'sgd' : self.sgd_nesterov_momentum}
+        self.optimizer = optimizers[optimizer]
+        
+        self.oc = output_channels ; self.ic = input_channels
+        self.kh = kernel_heigth ; self.kw = kernel_width        
+        self.pad = pad ; self.stride = stride
+        self.bias = bias
+
+        self.k = cp.random.uniform(-1, 1, (self.oc, self.ic, self.kw, self.kh), dtype='float32') * cp.sqrt(2./(self.kh * self.kw))
+        if self.bias: self.b = cp.zeros((self.oc, 1), dtype='float32')
+
+    def forward(self, x):
+        n, pc, pw, ph = x.shape
+
+        del pc
+
+        w = int(((pw + 2 * self.pad - self.kw) / self.stride) + 1)
+        h = int(((ph + 2 * self.pad - self.kh) / self.stride) + 1)
+
+        kcol = self.k.reshape((self.oc, -1))
+
+        xcol = im2col(x, self.kh, self.kw, self.pad, self.stride)
+        o = kcol @ xcol
+        if self.bias: o += self.b
+
+        o = o.reshape((self.oc, w, h, n)).transpose(3, 0, 1, 2)
+
+        self.mem = x.shape, xcol
+
+        return o
+
+    def bprop(self, do):
+        if self.bias: 
+            db = cp.sum(do, axis=(0, 2, 3)) / (do.shape[0] * do.shape[2] * do.shape[3])
+            db = db.reshape((-1, 1))
+
+        do = do.transpose(1, 2, 3, 0).reshape(self.oc, -1)
+        dw = (do @ self.mem[1].T) / self.mem[0][0]
+        dw = dw.reshape(self.k.shape)
+
+        kcol = self.k.reshape((self.oc, -1))
+        dxcol = kcol.T @ do
+        dx = col2im(dxcol, self.mem[0], self.kh, self.kw, self.pad, self.stride)
+
+        if self.bias:
+            self.mem = dw, db
+        else:
+            self.mem = dw
+
+        return dx
+
+    def adam_momentum(self, e, t, d1=0.9, d2=0.999, wd=0):
+        if self.bias:
+            try:
+                self.first_arm[0]
+            except AttributeError:
+                self.first_arm = [cp.zeros_like(gradient, dtype='float32') for gradient in self.mem]
+            finally:
+                self.first_arm = [m * d1 + (1 - d1) * gradient for m, gradient in zip(self.first_arm, self.mem)]
+
+            try:
+                self.second_arm[0]
+            except AttributeError:
+                self.second_arm = [cp.zeros_like(gradient, dtype='float32') for gradient in self.mem]
+            finally:
+                self.second_arm = [m * d2 + (1 - d2) * (gradient ** 2) for m, gradient in zip(self.second_arm, self.mem)]
+
+            first_stabilize = 1 - cp.power(d1, t)
+            second_stabilize = 1 - cp.power(d2, t)
+
+            first_arm_norm = [(m * d1) / first_stabilize + ((1 - d1) * gradient) / first_stabilize for m, gradient in (zip(self.first_arm, self.mem))]
+            second_arm_norm = [(m * d2) / second_stabilize for m in self.second_arm]
+
+            gradients = [(e * m) / (cp.sqrt(n + 1e-9)) for m, n in zip(first_arm_norm, second_arm_norm)]
+
+            self.k -= (e * wd * self.k + gradients[0])
+            self.b -= (e * wd * self.b + gradients[1])
+        else:
+            gradient = self.mem
+            try:
+                self.first_arm[0]
+            except AttributeError:
+                self.first_arm = cp.zeros_like(gradient, dtype='float32')
+            finally:
+                self.first_arm = self.first_arm * d1 + (1 - d1) * self.mem
+            
+            try:
+                self.second_arm[0]
+            except AttributeError:
+                self.second_arm = cp.zeros_like(gradient, dtype='float32')
+            finally:
+                self.second_arm = self.second_arm * d2 + (1 - d2) * (gradient ** 2)
+            
+            first_stabilize = 1 - cp.power(d1, t)
+            second_stabilize = 1 - cp.power(d2, t)
+
+            first_arm_norm = (self.first_arm * d1) / first_stabilize + ((1 - d1) * gradient) / first_stabilize
+            second_arm_norm = (self.second_arm * d2) / second_stabilize
+
+            gradient = (e * first_arm_norm) / cp.sqrt(second_arm_norm + 1e-9)
+
+            self.k -= (e * wd * self.k + gradient)
+
+        self.mem = [None]
+
+    def sgd_nesterov_momentum(self, e, d1=0.9, wd=0):
+        if self.bias:
+            try:
+                self.momentum[0]
+            except AttributeError:
+                self.momentum = [cp.zeros_like(gradient, dtype='float32') for gradient in self.mem]
+            finally:
+                self.momentum = [d1 * m + e * gradient for m, gradient in zip(self.momentum, self.mem)]
+            
+            gradients = [d1 * m + e * gradient for m, gradient in zip(self.momentum, self.mem)]
+
+            self.k -= (e * wd * self.k + gradients[0])
+            self.b -= (e * wd * self.b + gradients[1])
+        else:
+            gradient = self.mem
+            
+            try:
+                self.momentum[0]
+            except AttributeError:
+                self.momentum = cp.zeros_like(gradient, dtype='float32')
+            finally:
+                self.momentum = d1 * self.momentum + e * gradient
+            
+            gradient = d1 * self.momentum + e * gradient
+
+            self.k -= (e * wd * self.k + gradient)
+        
+        self.mem = [None]
+
+class GlobalAveragePool():
+    def __init__(self, optimizer='nadam'):
+        optimizers = {'nadam' : self.adam_momentum, 'sgd' : self.sgd_nesterov_momentum}
+        self.optimizer = optimizers[optimizer]
+    
+    def forward(self, x):
+        self.mem = n, c, w, h = x.shape
+        x = x.reshape(n, c, w * h)
+        o = cp.mean(x, axis=2, dtype='float32').reshape((n, c, 1, 1))
+
+        return o
+    
+    def bprop(self, do):
+        n, c, w, h = self.mem
+
+        dx = cp.zeros((n, c, w, h))
+        dx[::] = do
+
+        self.mem = [None]
+
+        return dx
+
+    def adam_momentum(self, e, t, d1=0.9, d2=0.999, wd=0):
+        pass
+    
+    def sgd_nesterov_momentum(self, e, d1=0.9, wd=0):
+        pass
+
+class BatchNorm():
+    def __init__(self, expected, optimizer='nadam'):
+        optimizers = {'nadam' : self.adam_momentum, 'sgd' : self.sgd_nesterov_momentum}
+        self.optimizer = optimizers[optimizer]
+
+        if isinstance(expected, int):
+            self.gamma = cp.ones(expected, dtype='float32')
+            self.beta = cp.zeros(expected, dtype='float32')
+
+            self.forward = self.forward_fc
+            self.bprop = self.bprop_fc
+        elif isinstance(expected, tuple):
+            assert len(expected) == 3, 'incorrect tuple'
+            c, w, h = expected
+
+            self.gamma = cp.ones((c, 1, w * h), dtype='float32')
+            self.beta = cp.zeros((c, 1, w * h), dtype='float32')
+
+            self.forward = self.forward_conv
+            self.bprop = self.bprop_conv
+        else:
+           self.forward = None
+           sys.exit('InputError: incorrect input') 
+
+    def forward_conv(self, x):
+        n, c, w, h = x.shape
+
+        x_reshaped = x.reshape((n, c, w * h)).transpose(1, 0, 2)
+        mean = cp.mean(x_reshaped, axis=1, dtype='float32', keepdims=True)
+        var = cp.sum((x_reshaped - mean) ** 2, axis=1, dtype='float32', keepdims=True) / n
+
+        xhat = (x_reshaped - mean) / cp.sqrt(var + 1e-9)
+
+        o = self.gamma * xhat + self.beta
+        o = o.transpose(1, 0, 2).reshape((n, c, w, h))
+
+        self.mem = x_reshaped, mean, var
+
+        return o
+    
+    def forward_fc(self, x):
+        n = x.shape[0]
+
+        mean = cp.mean(x, axis=0, dtype='float32', keepdims=True)
+        var = cp.sum((x - mean) ** 2, axis=0, dtype='float32', keepdims=True) / n
+
+        xhat = (x - mean) / cp.sqrt(var + 1e-9)
+
+        o = self.gamma * xhat + self.beta
+
+        self.mem = x, mean, var
+
+        return o
+
+    def bprop_conv(self, do):
+        x_reshaped, mean, var = self.mem
+        
+        n, c, w, h = do.shape
+        do = do.reshape((n, c, w * h)).transpose(1, 0, 2)
+
+        dxhat = do * self.gamma
+        dvar = cp.sum((dxhat * (x_reshaped - mean) * (((var + 1e-9) ** (-3./2.)) / -2)), axis=1, keepdims=True)
+        dmean = cp.sum((dxhat * (-1. / cp.sqrt(var + 1e-9))), axis=1, keepdims=True) + dvar * (cp.sum((-2 * (x_reshaped - mean)), axis=1, keepdims=True) / n)
+        
+        dx = dxhat * (1. / cp.sqrt(var + 1e-9)) + dvar * ((2 * (x_reshaped - mean)) / n) + dmean / n
+        dgamma = cp.sum((do * ((x_reshaped - mean) / cp.sqrt(var + 1e-9))), axis=1, keepdims=True)
+        dbeta = cp.sum(do, axis=1, keepdims=True)
+
+        self.mem = dgamma, dbeta
+
+        dx = dx.transpose(1, 0, 2).reshape((n, c, w, h))
+
+        return dx
+
+    def bprop_fc(self, do):
+        x, mean, var = self.mem
+        n = x.shape[0]
+
+        dxhat = do * self.gamma
+        dvar = cp.sum((dxhat * (x - mean) * (((var + 1e-9) ** (-3/2.)) / -2.)), axis=0, keepdims=True)
+        dmean = cp.sum((dxhat * (-1. / cp.sqrt(var + 1e-9))), axis=0, keepdims=True) + dvar * (cp.sum((-2 * (x - mean)), axis=0, keepdims=True) / n)
+        
+        dx = dxhat * (1. / cp.sqrt(var + 1e-9)) + dvar * ((2 * (x - mean)) / n) + dmean / n
+        dgamma = cp.sum((do * ((x - mean) / cp.sqrt(var + 1e-9))), axis=0)
+        dbeta = cp.sum(do, axis=0)
+
+        self.mem = dgamma, dbeta
+
+        return dx
+
+    def adam_momentum(self, e, t, d1=0.9, d2=0.999, wd=0):
+        try:
+            self.first_arm[0]
+        except AttributeError:
+            self.first_arm = [cp.zeros_like(gradient, dtype='float32') for gradient in self.mem]
+        finally:
+            self.first_arm = [m * d1 + (1 - d1) * gradient for m, gradient in zip(self.first_arm, self.mem)]
+
+        try:
+            self.second_arm[0]
+        except AttributeError:
+            self.second_arm = [cp.zeros_like(gradient, dtype='float32') for gradient in self.mem]
+        finally:
+            self.second_arm = [m * d2 + (1 - d2) * (gradient ** 2) for m, gradient in zip(self.second_arm, self.mem)]
+
+        first_stabilize = 1 - cp.power(d1, t)
+        second_stabilize = 1 - cp.power(d2, t)
+
+        first_arm_norm = [(m * d1) / first_stabilize + ((1 - d1) * gradient) / first_stabilize for m, gradient in (zip(self.first_arm, self.mem))]
+        second_arm_norm = [(m * d2) / second_stabilize for m in self.second_arm]
+
+        gradients = [(e * m) / (cp.sqrt(n + 1e-9)) for m, n in zip(first_arm_norm, second_arm_norm)]
+
+        self.gamma -= (e * wd * self.gamma + gradients[0])
+        self.beta -= (e * wd * self.beta + gradients[1])
+
+        self.mem = [None]
+
+    def sgd_nesterov_momentum(self, e, d1=0.9, wd=0):
+        try:
+            self.momentum[0]
+        except AttributeError:
+            self.momentum = [cp.zeros_like(gradient, dtype='float32') for gradient in self.mem]
+        finally:
+            self.momentum = [d1 * m + e * gradient for m, gradient in zip(self.momentum, self.mem)]
+        
+        gradients = [d1 * m + e * gradient for m, gradient in zip(self.momentum, self.mem)]
+
+        self.gamma -= (e * wd * self.gamma + gradients[0])
+        self.beta -= (e * wd * self.beta + gradients[1])
