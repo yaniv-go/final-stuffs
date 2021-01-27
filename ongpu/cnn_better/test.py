@@ -75,35 +75,18 @@ def resize_images(dataset_path, size):
             image.save(resized_breed_path + photo)
 
 
-dataset_path = "C:\\Users\\yaniv\\Documents\\datasets\\dog-breed\\"
+def foo1(*args, **kwargs):
+    foo2(*args, **kwargs)
 
-"""
-x = cp.arange(3 * 4 * 4 * 2).reshape((2, 3, 4, 4))
-fc = layers.Fc(3 * 4 * 4, 3, bias=False, optimizer='sgd')
-o = fc.forward(x)
-do = fc.bprop(o)
-print(fc.w, '\n\n\n\n')
-fc.optimizer(0.01, wd=0.01)
-print(fc.w)
+def foo2(a, b, wd):
+    print(a)
+    print(b)
+    print(wd)
 
-sys.exit()
+dataset_path = "/home/yaniv/dog-breed/"
+with open(dataset_path + 'breed-dict.pickle', 'rb') as f:
+    breeds = pickle.load(f)
+    breeds = {item : key for key, item in breeds.items()}
 
-
-
-
-x = cp.arange(3 * 4 * 4 * 2).reshape((2, 3, 4, 4))
-conv = layers.ConvLayer(optimizer='sgd', input_channels=3, output_channels=3, kernel_heigth=3, kernel_width=3, bias=True)
-o = conv.forward(x)
-do = conv.bprop(o)
-print(conv.b, '\n done \n')
-conv.optimizer(0.01, wd=0.01)
-print(conv.b)
-"""
-
-x = cp.arange(4 * 3).reshape((4, 3))
-bn = layers.BatchNorm(3, 'sgd')
-o = bn.forward(x)
-print(bn.gamma)
-bn.bprop(o)
-bn.optimizer(0.01, 0)
-print(bn.gamma)
+x = np.load(dataset_path + 'all-images-shuffled.npy')
+y = np.load(dataset_path + 'all-labels-shuffled.npy')

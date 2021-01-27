@@ -50,11 +50,33 @@ def col2im(cols, x_shape, field_height=3, field_width=3, padding=1,
         return x_padded
     return x_padded[:, :, padding:-padding, padding:-padding]
 
-class Relu():
-    def __init__(self, optimizer):
-        optimizers = {'nadam' : self.adam_momentum, 'sgd' : self.sgd_momentum}
+class GlobalAveragePool:
+    def __init__(self):
+        pass
+    
+    def forward(self, x):
+        self.mem = n, c, w, h = x.shape
+        x = x.reshape(n, c, w * h)
+        o = cp.mean(x, axis=2, dtype='float32').reshape((n, c, 1, 1))
+
+        return o
+    
+    def bprop(self, do):
+        n, c, w, h = self.mem
+
+        dx = cp.zeros((n, c, w, h))
+        dx[::] = do
+
         self.mem = [None]
-        self.optimizer = optimizers[optimizer]
+
+        return dx
+
+    def optimize(self, *args, **kwargs):
+        pass
+
+class Relu:
+    def __init__(self):
+        self.mem = [None]
     
     def forward(self, x):
         self.mem = cp.greater(x, 0).astype(cp.int8)
@@ -65,18 +87,13 @@ class Relu():
         self.mem = [None]
         return y * do
 
-    def adam_momentum(self, e, t, d1=0.9, d2=0.999, wd=0):
+    def optimize(self, *arg, **kwarg):
         pass
 
-    def sgd_momentum(self, e, m=0.9, wd=0):
-        pass
-
-class Softmax():
+class Softmax:
     # maybe change to have cost types as optimizers 
-    def __init__(self, optimizer):
-        optimizers = {'nadam' : self.adam_momentum, 'sgd' : self.sgd_momentum}
+    def __init__(self):
         self.mem = [None]
-        self.optimizer = optimizers[optimizer]
 
     def forward(self, x):
         e_x = cp.exp(x - cp.max(x))
@@ -88,13 +105,10 @@ class Softmax():
         self.mem = [None]
         return de
 
-    def adam_momentum(self, e, t, d1=0.9, d2=0.99, wd=0):
+    def optimize(self, *args, **kwargs):
         pass
 
-    def sgd_momentum(self, e, m=0.9, wd=0):
-        pass
-
-class Fc():
+class Fc:
     def __init__(self, row, col, optimizer='nadam', bias=True):
         optimizers = {'nadam' : self.adam_momentum, 'sgd' : self.sgd_nesterov_momentum}
 
@@ -103,7 +117,7 @@ class Fc():
         if bias: self.b = cp.zeros(col).astype('float32')
         self.mem = [None]
 
-        self.optimizer = optimizers[optimizer]
+        self.optimize = optimizers[optimizer]
 
     def forward(self, x):
         self.mem = x
@@ -215,10 +229,8 @@ class Fc():
 
         self.mem = [None]
 
-class MaxPool():
-    def __init__(self, optimizer='nadam', kernel_size=2, stride=2, padding=0):
-        optimizers = {'nadam' : self.adam_momentum, 'sgd' : self.sgd_nesterov_momentum}
-        self.optimizer = optimizers[optimizer]
+class MaxPool:
+    def __init__(self, kernel_size=2, stride=2, padding=0):
         self.ks = kernel_size
         self.stride = stride
         self.pad = padding     
@@ -258,16 +270,13 @@ class MaxPool():
 
         return dx
     
-    def adam_momentum(self, e, t, d1=0.9, d2=0.999, wd=0):
+    def optimize(self, *args, **kwargs):
         pass
 
-    def sgd_nesterov_momentum(self, e, d1=0.9, wd=0):
-        pass
-
-class ConvLayer():                     
+class ConvLayer:                     
     def __init__(self, optimizer='nadam', kernel_heigth=3, kernel_width=3, output_channels=16, pad=1, stride=1, input_channels=3, bias=True):
         optimizers = {'nadam' : self.adam_momentum, 'sgd' : self.sgd_nesterov_momentum}
-        self.optimizer = optimizers[optimizer]
+        self.optimize = optimizers[optimizer]
         
         self.oc = output_channels ; self.ic = input_channels
         self.kh = kernel_heigth ; self.kw = kernel_width        
@@ -343,6 +352,7 @@ class ConvLayer():
 
             self.k -= (e * wd * self.k + gradients[0])
             self.b -= (e * wd * self.b + gradients[1])
+
         else:
             gradient = self.mem
             try:
@@ -400,38 +410,10 @@ class ConvLayer():
         
         self.mem = [None]
 
-class GlobalAveragePool():
-    def __init__(self, optimizer='nadam'):
-        optimizers = {'nadam' : self.adam_momentum, 'sgd' : self.sgd_nesterov_momentum}
-        self.optimizer = optimizers[optimizer]
-    
-    def forward(self, x):
-        self.mem = n, c, w, h = x.shape
-        x = x.reshape(n, c, w * h)
-        o = cp.mean(x, axis=2, dtype='float32').reshape((n, c, 1, 1))
-
-        return o
-    
-    def bprop(self, do):
-        n, c, w, h = self.mem
-
-        dx = cp.zeros((n, c, w, h))
-        dx[::] = do
-
-        self.mem = [None]
-
-        return dx
-
-    def adam_momentum(self, e, t, d1=0.9, d2=0.999, wd=0):
-        pass
-    
-    def sgd_nesterov_momentum(self, e, d1=0.9, wd=0):
-        pass
-
-class BatchNorm():
+class BatchNorm:
     def __init__(self, expected, optimizer='nadam'):
         optimizers = {'nadam' : self.adam_momentum, 'sgd' : self.sgd_nesterov_momentum}
-        self.optimizer = optimizers[optimizer]
+        self.optimize = optimizers[optimizer]
 
         if isinstance(expected, int):
             self.gamma = cp.ones(expected, dtype='float32')
@@ -558,3 +540,38 @@ class BatchNorm():
 
         self.gamma -= (e * wd * self.gamma + gradients[0])
         self.beta -= (e * wd * self.beta + gradients[1])
+
+        self.mem = [None]
+
+class ResidualBlock:
+    def __init__(self, *layers):
+        self.first = layers[0]
+        self.layers = layers[1:]
+    
+    def forward(self, x):
+        self.mem = o = self.first.forward(x)
+
+        for l in self.layers:
+            o = l.forward(o)
+        
+        o += self.mem
+        self.mem = [None]
+
+        return o
+    
+    def bprop(self, do):
+        self.mem = do
+
+        for l in self.layers[::-1]:
+            do = l.bprop(do)
+        
+        do += self.mem
+        self.mem = [None]
+
+        return self.first.bprop(do)
+
+    def optimize(self, *args, **kwargs):
+        for l in self.layers:
+            l.optimizer(*args, **kwargs)
+        
+        self.first.optimizer(*args, **kwargs)
