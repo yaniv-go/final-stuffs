@@ -54,6 +54,15 @@ class GlobalAveragePool:
     def __init__(self):
         pass
     
+    def test(self, x):
+        self.mem = n, c, w, h = x.shape
+        x = x.reshape(n, c, w * h)
+        o = cp.mean(x, axis=2, dtype='float32').reshape((n, c, 1, 1))
+
+        self.mem = [None]
+
+        return o
+
     def forward(self, x):
         self.mem = n, c, w, h = x.shape
         x = x.reshape(n, c, w * h)
@@ -78,6 +87,11 @@ class Relu:
     def __init__(self):
         self.mem = [None]
     
+    def test(self, x):
+        a = cp.greater(x, 0).astype(cp.int8)
+        self.mem = [None]
+        return x * a
+
     def forward(self, x):
         self.mem = cp.greater(x, 0).astype(cp.int8)
         return x * self.mem
@@ -94,6 +108,12 @@ class Softmax:
     # maybe change to have cost types as optimizers 
     def __init__(self):
         self.mem = [None]
+
+    def test(self, x):
+        e_x = cp.exp(x - cp.max(x))
+        softmaxed = e_x / e_x.sum(axis=1).reshape((-1, 1))
+        self.mem = [None]
+        return softmaxed
 
     def forward(self, x):
         e_x = cp.exp(x - cp.max(x))
@@ -118,6 +138,15 @@ class Fc:
         self.mem = [None]
 
         self.optimize = optimizers[optimizer]
+
+    def test(self, x):
+        self.mem = [None]
+        if len(x.shape) > 2: x = x.reshape((x.shape[0], -1))
+
+        o = x @ self.w
+        if self.bias: o += self.b
+
+        return o       
 
     def forward(self, x):
         self.mem = x
@@ -235,6 +264,25 @@ class MaxPool:
         self.stride = stride
         self.pad = padding     
 
+    def test(self, x):
+        n, c, ph, pw = x.shape
+        h = int(((ph + 2 * self.pad - self.ks) / self.stride) + 1)
+        w = int(((pw + 2 * self.pad - self.ks) / self.stride) + 1)
+
+        x_reshaped = x.reshape(n * c, 1, ph, pw)
+        del x
+
+        xcol = im2col(x_reshaped, self.ks, self.ks, self.pad, self.stride)
+        max_idx = cp.argmax(xcol, axis=0)
+
+        out = xcol[max_idx, cp.arange(max_idx.size, dtype='int8')]
+        out = out.reshape((h, w, n, c))
+        out = out.transpose(2, 3, 0, 1)
+
+        self.mem = [None]
+
+        return out
+
     def forward(self, x):
         n, c, ph, pw = x.shape
         h = int(((ph + 2 * self.pad - self.ks) / self.stride) + 1)
@@ -285,6 +333,26 @@ class ConvLayer:
 
         self.k = cp.random.uniform(-1, 1, (self.oc, self.ic, self.kw, self.kh), dtype='float32') * cp.sqrt(2./(self.kh * self.kw))
         if self.bias: self.b = cp.zeros((self.oc, 1), dtype='float32')
+
+    def test(self, x):
+        n, pc, pw, ph = x.shape
+
+        del pc
+
+        w = int(((pw + 2 * self.pad - self.kw) / self.stride) + 1)
+        h = int(((ph + 2 * self.pad - self.kh) / self.stride) + 1)
+
+        kcol = self.k.reshape((self.oc, -1))
+
+        xcol = im2col(x, self.kh, self.kw, self.pad, self.stride)
+        o = kcol @ xcol
+        if self.bias: o += self.b
+
+        o = o.reshape((self.oc, w, h, n)).transpose(3, 0, 1, 2)
+
+        self.mem = [None]
+
+        return o
 
     def forward(self, x):
         n, pc, pw, ph = x.shape
@@ -421,6 +489,7 @@ class BatchNorm:
 
             self.forward = self.forward_fc
             self.bprop = self.bprop_fc
+            self.test = self.test_fc
         elif isinstance(expected, tuple):
             assert len(expected) == 3, 'incorrect tuple'
             c, w, h = expected
@@ -430,9 +499,26 @@ class BatchNorm:
 
             self.forward = self.forward_conv
             self.bprop = self.bprop_conv
+            self.test = self.test_conv
         else:
            self.forward = None
            sys.exit('InputError: incorrect input') 
+
+    def test_conv(self, x):
+        n, c, w, h = x.shape
+
+        x_reshaped = x.reshape((n, c, w * h)).transpose(1, 0, 2)
+        mean = cp.mean(x_reshaped, axis=1, dtype='float32', keepdims=True)
+        var = cp.sum((x_reshaped - mean) ** 2, axis=1, dtype='float32', keepdims=True) / n
+
+        xhat = (x_reshaped - mean) / cp.sqrt(var + 1e-9)
+
+        o = self.gamma * xhat + self.beta
+        o = o.transpose(1, 0, 2).reshape((n, c, w, h))
+
+        self.mem = [None]
+
+        return o
 
     def forward_conv(self, x):
         n, c, w, h = x.shape
@@ -461,6 +547,20 @@ class BatchNorm:
         o = self.gamma * xhat + self.beta
 
         self.mem = x, mean, var
+
+        return o
+    
+    def test_fc(self, x):
+        n = x.shape[0]
+
+        mean = cp.mean(x, axis=0, dtype='float32', keepdims=True)
+        var = cp.sum((x - mean) ** 2, axis=0, dtype='float32', keepdims=True) / n
+
+        xhat = (x - mean) / cp.sqrt(var + 1e-9)
+
+        o = self.gamma * xhat + self.beta
+
+        self.mem = [None]
 
         return o
 
@@ -575,3 +675,14 @@ class ResidualBlock:
             l.optimizer(*args, **kwargs)
         
         self.first.optimizer(*args, **kwargs)
+    
+    def test(self, x):
+        self.mem = o = self.first.forward(x)
+
+        for l in self.layers:
+            o = l.forward(o)
+        
+        o += self.mem
+        self.mem = [None]
+
+        return o

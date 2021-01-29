@@ -4,13 +4,14 @@ import cupy as cp
 import numpy as np
 import layers_better as layers
 #from layers import *
+import keras.datasets.mnist as mnist
 from PIL import Image
 import pandas as pd
 import pickle
 import cProfile
 import os
 import sys
-#import cnn
+import cnn_better as cnn
 
 def get_batches(x, y, k): 
     p = np.random.permutation(x.shape[0])
@@ -88,5 +89,6 @@ with open(dataset_path + 'breed-dict.pickle', 'rb') as f:
     breeds = pickle.load(f)
     breeds = {item : key for key, item in breeds.items()}
 
-x = np.load(dataset_path + 'all-images-shuffled.npy')
-y = np.load(dataset_path + 'all-labels-shuffled.npy')
+a = 5
+
+print(sum(a))
