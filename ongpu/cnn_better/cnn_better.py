@@ -106,7 +106,7 @@ class CNN:
 
         return x
     
-    def Fc(self, output, activation='relu', batch_norm=False, after=True):
+    def fc(self, output, activation='relu', batch_norm=False, after=True):
         assert isinstance(output, int), 'insert valid output'
         
         if isinstance(self.curr_output, tuple):
@@ -132,7 +132,7 @@ class CNN:
         
         self.curr_output = output
     
-    def ConvLayer(self, num_maps, kernel_width=3, kernel_heigth=3, pad=1, stride=1, activation='relu', batch_norm=False, after=True):
+    def convLayer(self, num_maps, kernel_width=3, kernel_heigth=3, pad=1, stride=1, activation='relu', batch_norm=False, after=True):
         assert not isinstance(self.curr_output, int), 'cannot insert conv after fc'
         
         c, pw, ph = self.curr_output
@@ -163,15 +163,44 @@ class CNN:
         
         self.curr_output = (num_maps, w, h)
 
-    def GlobalAveragePool(self):
+    def globalAveragePool(self):
         assert isinstance(self.curr_output, tuple), 'incorrect input for average pool'
         self.nn.append(layers.GlobalAveragePool())
         self.curr_output = (self.curr_output[0], 1, 1)
 
     def Softmax(self):
         assert isinstance(self.curr_output, int), 'invalid input for softmax'
-        self.nn.append(layers.Softmax)
+        self.nn.append(layers.Softmax())
+    
+    def maxPool(self, kernel_size=2, stride=2, pad=0):
+        assert isinstance(self.curr_output, tuple), 'invalid input shape for maxpool'
 
+        c, pw, ph = self.curr_output
+
+        assert (pw + 2 * pad - kernel_size) % stride == 0, 'invalid kernel width'
+        assert (ph + 2 * pad - kernel_size) % stride == 0, 'invalid kernel height'
+
+        w = int((pw + 2 * pad - kernel_size) / stride + 1)
+        h = int((ph + 2 * pad - kernel_size) / stride + 1)
+
+        self.nn.append(layers.MaxPool(kernel_size, stride, pad))
+
+        self.curr_output = c, w, h
+
+    def ResidualBlock(self, output_channels, depth=3, activation='relu'):
+        assert isinstance(self.curr_output, tuple), 'incorrect input for residual block'
+        assert isinstance(depth, int), 'insert valid depth'
+
+        activations = {'relu' : layers.Relu}
+        
+        pc, w, h = self.curr_output
+
+        try: 
+            lyrs = [layers.ConvLayer(optimizer=self.optimizer, output_channels=output_channels, input_channels=pc, bias=False)]
+        except KeyError:
+            raise KeyError('insert valid activation')
+
+        
 
     @property
     def pre_proc_x(self):
