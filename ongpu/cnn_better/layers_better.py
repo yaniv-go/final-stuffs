@@ -66,7 +66,7 @@ class GlobalAveragePool:
     def forward(self, x):
         self.mem = n, c, w, h = x.shape
         x = x.reshape(n, c, w * h)
-        o = cp.mean(x, axis=2, dtype='float32').reshape((n, c, 1, 1))
+        o = cp.mean(x, axis=2, dtype='float32').reshape((n, c))
 
         return o
     
@@ -74,7 +74,7 @@ class GlobalAveragePool:
         n, c, w, h = self.mem
 
         dx = cp.zeros((n, c, w, h))
-        dx[::] = do
+        dx[::] = do.reshape((n, c, 1, 1))
 
         self.mem = [None]
 

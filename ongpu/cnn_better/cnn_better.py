@@ -128,6 +128,7 @@ class CNN:
         else:
             self.nn.append(layers.Fc(self.curr_output, output, self.optimizer, bias=True))
             self.nn.append(activation())
+            
         
         self.curr_output = output
     
@@ -163,9 +164,14 @@ class CNN:
         self.curr_output = (num_maps, w, h)
 
     def GlobalAveragePool(self):
-        assert isinstance(self.curr_output, tuple), 'incorrect inpu for average pool'
+        assert isinstance(self.curr_output, tuple), 'incorrect input for average pool'
         self.nn.append(layers.GlobalAveragePool())
         self.curr_output = (self.curr_output[0], 1, 1)
+
+    def Softmax(self):
+        assert isinstance(self.curr_output, int), 'invalid input for softmax'
+        self.nn.append(layers.Softmax)
+
 
     @property
     def pre_proc_x(self):
