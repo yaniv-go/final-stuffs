@@ -151,7 +151,6 @@ class Fc:
     def forward(self, x):
         self.mem = x
         if len(x.shape) > 2: x = x.reshape((x.shape[0], -1))
-
         o = x @ self.w
         if self.bias: o += self.b
 
@@ -672,9 +671,9 @@ class ResidualBlock:
 
     def optimize(self, *args, **kwargs):
         for l in self.layers:
-            l.optimizer(*args, **kwargs)
+            l.optimize(*args, **kwargs)
         
-        self.first.optimizer(*args, **kwargs)
+        self.first.optimize(*args, **kwargs)
     
     def test(self, x):
         self.mem = o = self.first.forward(x)

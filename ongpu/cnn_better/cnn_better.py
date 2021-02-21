@@ -1,4 +1,5 @@
 import layers_better as layers
+from time import time
 import numpy as np
 import cupy as cp
 import copy
@@ -23,6 +24,7 @@ class CNN:
         self.optimizer = optimizer
         self.cost = losses[loss]
         self.nn = []
+        self.nb_classes = 0
   
     def adam_momentum(self, epochs, tx, ty, vx, vy, e, d1=0.9, d2=0.999, wd=0):
         train_loss, validation_loss = [], []
@@ -34,16 +36,18 @@ class CNN:
         for ep in range(epochs):
             j, jv = [], []
             a, av = [], []
+
             for n in range(tx.shape[0]):
                 t += 1
 
-                p = np.random.permutation(tx.shape[0])
-                xb, yb = cp.asarray(tx[p], dtype='float32'), cp.asarray(ty[p], dtype='float32')
+                p = np.random.randint(0, tx.shape[0])
+                xb, yb = cp.array(tx[p], dtype='float32'), cp.array(ty[p], dtype='float32')
 
                 xb = self.pre_proc_x(xb)
                 yb = self.pre_proc_y(yb)
 
                 o = self.forward(xb)
+                print(o[o == 1], '\n\n')
                 j.append(self.cost(o, yb))
                 a.append(self.accuracy(o, yb))
 
@@ -85,7 +89,7 @@ class CNN:
             l.optimize(*args, **kwargs)
 
     def bprop(self, do):
-        for l in self.nn:
+        for l in self.nn[::-1]:
             do = l.bprop(do)
 
         return do
@@ -107,7 +111,7 @@ class CNN:
             self.nb_classes = int(cp.max(x) + 1)
         finally:
             y = cp.zeros((x.size, self.nb_classes))
-            y[cp.arange(x.size), x] = 1
+            y[cp.arange(x.size), x.astype('uint8')] = 1
         
         return y
 
@@ -121,7 +125,7 @@ class CNN:
         assert isinstance(output, int), 'insert valid output'
         
         if isinstance(self.curr_output, tuple):
-            self.curr_output = sum(self.curr_output)
+            self.curr_output = np.prod(self.curr_output)
         activations = {'relu' : layers.Relu}
         try:
             activation = activations[activation]
@@ -233,10 +237,10 @@ class CNN:
 
     def accuracy(self, o, y):
         n = o.shape[0]
-        o = cp.argmax(o, axis=1, dtype='float32')
+        o = cp.argmax(o, axis=1)
         yes = 0
         for output, arr in zip(o, y):
-            if y[output] == 1: yes += 1
+            if arr[output] == 1: yes += 1
 
         return yes / n
 
