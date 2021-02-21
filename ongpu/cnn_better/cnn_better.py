@@ -29,6 +29,8 @@ class CNN:
         train_acc, validation_acc = [], []
         t = 0
     
+        info = 'epoch {ep}: tloss {tloss} tacc {tacc} vloss {vloss} vacc {vacc}'
+
         for ep in range(epochs):
             j, jv = [], []
             a, av = [], []
@@ -64,7 +66,7 @@ class CNN:
             validation_loss.append(sum(jv) / vx.shape[0])
             validation_acc.append(sum(av) / vx.shape[0])
 
-            print('epoch ')
+            print(info.format(ep=ep, tloss=train_loss[-1], tacc=train_acc[-1], vloss=validation_loss[-1], vacc=validation_acc[-1]))
 
         return train_loss, validation_loss, train_acc, validation_acc
 
