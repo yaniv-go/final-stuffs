@@ -26,10 +26,12 @@ class CNN:
   
     def adam_momentum(self, epochs, tx, ty, vx, vy, e, d1=0.9, d2=0.999, wd=0):
         train_loss, validation_loss = [], []
+        train_acc, validation_acc = [], []
         t = 0
     
         for ep in range(epochs):
             j, jv = [], []
+            a, av = [], []
             for n in range(tx.shape[0]):
                 t += 1
 
@@ -41,10 +43,13 @@ class CNN:
 
                 o = self.forward(xb)
                 j.append(self.cost(o, yb))
+                a.append(self.accuracy(o, yb))
+
                 self.bprop(yb)
                 self.optimize(e, t, d1, d2, wd)
             
             train_loss.append(sum(j) / tx.shape[0])
+            train_acc.append(sum(a) / tx.shape[0])
 
             for xb, yb in zip(vx, vy):
                 xb, yb = cp.asarray(tx[p], dtype='float32'), cp.asarray(ty[p], dtype='float32')
@@ -54,10 +59,14 @@ class CNN:
 
                 o = self.test(xb)
                 jv.append(self.cost(o, yb))
+                av.append(self.accuracy(o, yb))
             
             validation_loss.append(sum(jv) / vx.shape[0])
-        
-        return j, jv
+            validation_acc.append(sum(av) / vx.shape[0])
+
+            print('epoch ')
+
+        return train_loss, validation_loss, train_acc, validation_acc
 
     def sgd_nesterov_momentum(self, tx, ty, vx, vy, e, d1=0.9, wd=0):
         train_loss, validation_loss = [], []
@@ -187,20 +196,47 @@ class CNN:
 
         self.curr_output = c, w, h
 
-    def ResidualBlock(self, output_channels, depth=3, activation='relu'):
+    def ResidualBlock(self, output_channels, depth=3, activation='relu', after=True):
         assert isinstance(self.curr_output, tuple), 'incorrect input for residual block'
+        assert isinstance(output_channels, int), 'insert valid output channel'
         assert isinstance(depth, int), 'insert valid depth'
 
         activations = {'relu' : layers.Relu}
         
-        pc, w, h = self.curr_output
+        pc, pw, ph = self.curr_output
 
         try: 
-            lyrs = [layers.ConvLayer(optimizer=self.optimizer, output_channels=output_channels, input_channels=pc, bias=False)]
+            activation = activations[activation]
         except KeyError:
             raise KeyError('insert valid activation')
-
+            
+        res_block = [layers.ConvLayer(optimizer=self.optimizer, output_channels=output_channels, input_channels=pc, bias=False)]
+        for i in range(depth - 1):
+            if after:
+                res_block.append(activation())
+                res_block.append(layers.BatchNorm((output_channels, pw, ph), optimizer=self.optimizer))
+            else:
+                res_block.append(layers.BatchNorm((output_channels, pw, ph), optimizer=self.optimizer))
+                res_block.append(activation())
+            res_block.append(layers.ConvLayer(optimizer=self.optimizer, output_channels=output_channels, input_channels=output_channels, bias=False))
         
+        self.curr_output = (output_channels, pw, ph)
+        self.nn.append(layers.ResidualBlock(*res_block))
+        if after:
+            self.nn.append(activation())
+            self.nn.append(layers.BatchNorm(self.curr_output, optimizer=self.optimizer))
+        else:
+            self.nn.append(layers.BatchNorm(self.curr_output, optimizer=self.optimizer))
+            self.nn.append(activation())
+
+    def accuracy(self, o, y):
+        n = o.shape[0]
+        o = cp.argmax(o, axis=1, dtype='float32')
+        yes = 0
+        for output, arr in zip(o, y):
+            if y[output] == 1: yes += 1
+
+        return yes / n
 
     @property
     def pre_proc_x(self):
