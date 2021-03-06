@@ -11,8 +11,7 @@ import pickle
 import cProfile
 import os
 import sys
-import cnn_better as cnn
-
+from cnn_better import CNN
 def get_batches(x, y, k): 
     p = np.random.permutation(x.shape[0])
     x, y = x[p], y[p]
@@ -91,4 +90,4 @@ with open(dataset_path + 'breed-dict.pickle', 'rb') as f:
 
 a = 5
 
-print(sum(a))
+cnn = CNN(1, 28, 28, pre_proc_x='norm-cent')

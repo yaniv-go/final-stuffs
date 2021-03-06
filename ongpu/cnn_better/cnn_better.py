@@ -47,8 +47,9 @@ class CNN:
                 yb = self.pre_proc_y(yb)
 
                 o = self.forward(xb)
-                print(o[o == 1], '\n\n')
                 j.append(self.cost(o, yb))
+                nans = o[o == cp.nan]
+                if nans: print(nans)
                 a.append(self.accuracy(o, yb))
 
                 self.bprop(yb)
@@ -69,6 +70,9 @@ class CNN:
             
             validation_loss.append(sum(jv) / vx.shape[0])
             validation_acc.append(sum(av) / vx.shape[0])
+
+            print(j)
+            print(train_loss)
 
             print(info.format(ep=ep, tloss=train_loss[-1], tacc=train_acc[-1], vloss=validation_loss[-1], vacc=validation_acc[-1]))
 
