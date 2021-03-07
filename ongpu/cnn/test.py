@@ -9,6 +9,7 @@ import pickle
 import cProfile
 import os
 import cnn
+import re
 
 def get_batches(x, y, k): 
     p = np.random.permutation(x.shape[0])
@@ -73,8 +74,35 @@ def resize_images(dataset_path, size):
             image.save(resized_breed_path + photo)
 
 
-dataset_path = "C:\\Users\\yaniv\\Documents\\datasets\\dog-breed\\"
+dataset_path = "/home/yaniv/dog-breed/"
+reg = re.compile(r'(\d{1,3}) : (.+)')
 
+with open("/home/yaniv/dog-breed/" + 'breed-dict.pickle', 'rb') as f:
+    breeds = pickle.load(f)
 
-a = cp.arange(50)
-print(cp.greater(a, 15))
+with open(dataset_path + '7-group-dict.pickle', 'rb') as f:
+    groups = pickle.load(f)
+
+with open(dataset_path + 'breeds-7.txt', 'r') as f:
+    lines = f.readlines()
+
+breeds_7 = []
+for line in lines:
+    a = re.match(reg, line)
+    breeds_7.append(a.groups())
+
+breeds_7 = {x : y.strip() for x, y in breeds_7}
+
+breeds_7 = {int(x) : groups[y] for x, y in breeds_7.items()}
+print(breeds_7)
+
+with open(dataset_path + 'breeds-7.pickle', 'wb') as f:
+    pickle.dump(breeds_7, f)
+
+y = np.load(dataset_path + 'all-labels-shuffled.npy')
+for c in range(y.shape[0]):
+    y[c] = breeds_7[y[c]]
+
+np.save(dataset_path + 'all-labels-grouped-7.npy', y)
+
+print (np.max(y))

@@ -78,7 +78,6 @@ class CNN:
             a = cp.array(a, dtype='float32') / 255
             mean = cp.mean(a, axis=(2, 3), dtype='float64').reshape((-1, 3, 1, 1))
             a = (a - mean).astype('float32')
-            print(a.shape)
             o = self.forward(a)
             for l in self.nn:
                     if type(l) == ResidualBlock:
@@ -318,7 +317,6 @@ class CNN:
                 jv.append(self.cost(o, yt))
 
         return j, jv
-    @numba.jit(nopython=False)
     def adam_momentum(self, epochs, xb, yb, xv, yv, e=0.01, wd=0.01, k=32, d=0.999, m=0.9):
         rr = []
         ss = []
@@ -400,7 +398,8 @@ class CNN:
                     else:
                         l.mem = [None]
             print(time.time() - tm)
-
+            info = '{ep}: cost-{j} vcost{jv}'
+            print(info.format(ep=ep, j=j[-1], jv=jv[-1]))
         return j, jv
 
 def get_one_hot(targets, nb_classes):
@@ -427,8 +426,8 @@ def get_mnist():
 
 def get_dogs(dataset_path):
     x = np.load(dataset_path + 'all-images-shuffled.npy')
-    y = np.load(dataset_path + 'all-labels-shuffled.npy')
-    y = get_one_hot(y, 120)
+    y = np.load(dataset_path + 'all-labels-grouped-7.npy')
+    y = get_one_hot(y, 7)
 
     return x, y
 
@@ -584,23 +583,37 @@ if __name__ == "__main__":
     c.add_res_block(*seventh_res_block)
     del seventh_res_block
 
+    seventh_res_block = []
+    seventh_res_block.append(ReluLayer())
+    seventh_res_block.append(BN_layer((1024, 5, 5)))
+    seventh_res_block.append(ConvLayer(amount=1024, channels=1024))
+    seventh_res_block.append(ReluLayer())
+    seventh_res_block.append(BN_layer((1024, 5, 5)))
+    seventh_res_block.append(ConvLayer(amount=1024, channels=1024))
+    seventh_res_block.append(ReluLayer())
+    seventh_res_block.append(BN_layer((1024, 5, 5)))
+    seventh_res_block.append(ConvLayer(amount=1024, channels=1024))
+
+    c.add_res_block(*seventh_res_block)
+    del seventh_res_block
+
     c.add_relu_layer()
     c.add_bn_layer((1024, 5, 5))
     c.add_global_pool_layer()
 
     
 
-    c.add_fc_layer(1024, 1024, 1)
+    c.add_fc_layer(1024, 512, 1)
     c.add_relu_layer()
-    c.add_bn_layer((1024,))
+    c.add_bn_layer((512,))
 
-    c.add_fc_layer(1024, 120, 0)
+    c.add_fc_layer(512, 7, 0)
     c.add_softmax_layer()
 
     dataset_path = "/home/yaniv/dog-breed/"
     x, y = get_dogs(dataset_path)
     xb = x.reshape((-1, 32, 3, 224, 224))
-    yb = y.reshape((-1, 32, 120))
+    yb = y.reshape((-1, 32, 7))
 
     n = int(xb.shape[0] * 0.7)
     (tx, ty), (vx, vy) = (xb[:n], yb[:n]), (xb[n:], yb[n:])
@@ -613,11 +626,11 @@ if __name__ == "__main__":
     with open('model-12-01.pickle', 'wb') as f:
         pickle.dump(c, f)
     
-    y = cp.load(dataset_path + 'all-labels-shuffled.npy')
+    y = cp.load(dataset_path + 'all-labels-grouped-7.npy')
     
     print('training test: ')
     c.test(x[:2048].reshape((-1 , 32, 3, 224, 224)), y[:2048].reshape((-1, 32)))
-
+ 
     print('validation test: ')
     c.test(x[-2048:].reshape((-1 , 32, 3, 224, 224)), y[-2048:].reshape((-1, 32)))
 
