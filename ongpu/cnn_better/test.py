@@ -86,8 +86,9 @@ def foo2(a, b, wd):
 dataset_path = "/home/yaniv/dog-breed/"
 with open(dataset_path + 'breed-dict.pickle', 'rb') as f:
     breeds = pickle.load(f)
+    print(breeds)
     breeds = {item : key for key, item in breeds.items()}
 
 a = 5
 
-cnn = CNN(1, 28, 28, pre_proc_x='norm-cent')
+cnn = CNN()

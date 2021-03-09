@@ -640,6 +640,8 @@ if __name__ == "__main__":
 
     plt.show()
 
+CNN.__module__ = 'cnn'
+
 """
 dataset_path = "C:\\Users\\yaniv\\Documents\\datasets\\dog-breed\\"
 x, y = get_dogs(dataset_path)

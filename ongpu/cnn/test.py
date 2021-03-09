@@ -90,12 +90,12 @@ breeds_7 = []
 for line in lines:
     a = re.match(reg, line)
     breeds_7.append(a.groups())
-
+print(breeds_7)
 breeds_7 = {x : y.strip() for x, y in breeds_7}
 
 breeds_7 = {int(x) : groups[y] for x, y in breeds_7.items()}
 print(breeds_7)
-
+"""
 with open(dataset_path + 'breeds-7.pickle', 'wb') as f:
     pickle.dump(breeds_7, f)
 
@@ -106,3 +106,4 @@ for c in range(y.shape[0]):
 np.save(dataset_path + 'all-labels-grouped-7.npy', y)
 
 print (np.max(y))
+"""
