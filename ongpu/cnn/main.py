@@ -89,6 +89,24 @@ if __name__ == "__main__":
 
     c.add_relu_layer()
     c.add_bn_layer((128, 28, 28))
+    c.add_conv_layer(amount=128, channels=128)
+
+    fourth_res_block = []
+    fourth_res_block.append(ReluLayer())
+    fourth_res_block.append(BN_layer((128, 28, 28)))
+    fourth_res_block.append(ConvLayer(amount=128, channels=128))
+    fourth_res_block.append(ReluLayer())
+    fourth_res_block.append(BN_layer((128, 28, 28)))
+    fourth_res_block.append(ConvLayer(amount=128, channels=128))
+    fourth_res_block.append(ReluLayer())
+    fourth_res_block.append(BN_layer((128, 28, 28)))
+    fourth_res_block.append(ConvLayer(amount=128, channels=128))
+
+    c.add_res_block(*fourth_res_block)
+    del fourth_res_block
+
+    c.add_relu_layer()
+    c.add_bn_layer((128, 28, 28))
     c.add_pool_layer()
     c.add_conv_layer(amount=256, channels=128)
     
@@ -98,6 +116,24 @@ if __name__ == "__main__":
     c.add_bn_layer((256, 14, 14))
     c.add_conv_layer(amount=256, channels=256)
     """
+
+    fifth_res_block = []
+    fifth_res_block.append(ReluLayer())
+    fifth_res_block.append(BN_layer((256, 14, 14)))
+    fifth_res_block.append(ConvLayer(amount=256, channels=256))
+    fifth_res_block.append(ReluLayer())
+    fifth_res_block.append(BN_layer((256, 14, 14)))
+    fifth_res_block.append(ConvLayer(amount=256, channels=256))    
+    fifth_res_block.append(ReluLayer())
+    fifth_res_block.append(BN_layer((256, 14, 14)))
+    fifth_res_block.append(ConvLayer(amount=256, channels=256))
+
+    c.add_res_block(*fifth_res_block)
+    del fifth_res_block
+
+    c.add_relu_layer()
+    c.add_bn_layer((256, 14, 14))
+    c.add_conv_layer(amount=256, channels=256)
 
     fifth_res_block = []
     fifth_res_block.append(ReluLayer())
@@ -198,7 +234,7 @@ if __name__ == "__main__":
     #cProfile.run('c.sgd(1, tx, ty, vx, vy, e0=1e-3, wd=1e-8, k=2500)')
     try:
         with open('file', 'w') as f:
-            cProfile.run('j, jv = c.adam_momentum(55, tx[::], ty[::], vx[::], vy[::], e=1e-4, wd=1e-8, k=32)')
+            cProfile.run('j, jv = c.adam_momentum(10, tx[::], ty[::], vx[::], vy[::], e=1e-4, wd=1e-8, k=32)')
 
             #j, jv = c.adam_momentum(10, tx[::], ty[::], vx[::], vy[::], e=1e-4, wd=0, k=32)
     except KeyboardInterrupt:
