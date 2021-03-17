@@ -5,9 +5,9 @@ import numpy as np
 import pickle
 import cProfile
 
+dogs = 0
 
-
-if __name__ == "__main__":
+if __name__ == "__main__" and dogs == 1:
     
     c = CNN()
 
@@ -259,3 +259,97 @@ if __name__ == "__main__":
 
     plt.show()
 
+if __name__ == '__main__' and dogs==0:
+    dataset_path = '/home/yaniv/drawings/'
+    c = CNN()
+
+    c.add_conv_layer(amount=16, channels=1)
+    c.add_relu_layer()
+    c.add_bn_layer((16, 28, 28))
+
+    c.add_conv_layer(amount=16, channels=16)
+    c.add_relu_layer()
+    c.add_bn_layer((16, 28, 28))
+
+    c.add_pool_layer()
+
+    c.add_conv_layer(amount=32, channels=16)
+    c.add_relu_layer()
+    c.add_bn_layer((32, 14, 14))
+
+    c.add_conv_layer(amount=32, channels=32)
+    c.add_relu_layer()
+    c.add_bn_layer((32, 14, 14))
+
+    c.add_pool_layer()
+
+    c.add_conv_layer(amount=64, channels=32)
+    c.add_relu_layer()
+    c.add_bn_layer((64, 7, 7))
+
+    c.add_conv_layer(amount=64, channels=64)
+    c.add_relu_layer()
+    c.add_bn_layer((64, 7, 7))
+
+    c.add_fc_layer(3136, 3136, 1)
+    c.add_relu_layer()
+    c.add_bn_layer((3136,))
+
+    c.add_fc_layer(3136, 2048)
+    c.add_relu_layer()
+    c.add_bn_layer((2048,))
+
+    c.add_fc_layer(2048, 2048)
+    c.add_relu_layer()
+    c.add_bn_layer((2048,))
+
+    c.add_fc_layer(2048, 1024)
+    c.add_relu_layer()
+    c.add_bn_layer((1024,))
+
+    c.add_fc_layer(1024, 9)
+    c.add_softmax_layer()
+
+    x, y = np.load(dataset_path + 'x.npy').reshape(-1, 1, 28, 28), np.load(dataset_path + 'y.npy')
+    print(x.shape)
+    print(y.shape)
+
+    n = int(0.9 * x.shape[0])
+    tx, ty, vx, vy = x[:n], y[:n], x[n:], y[n:]
+
+    tx = tx.reshape((-1, 512, 1, 28, 28))
+    vx = vx.reshape((-1, 512, 1, 28, 28))
+    
+    ty = get_one_hot(ty, 9)
+    vy = get_one_hot(vy, 9)
+
+    ty = ty.reshape((-1, 512, 9))
+    vy = vy.reshape((-1, 512, 9))
+
+    print(vx.shape)
+    print(vy.shape)
+
+    try:
+        cProfile.run('j, jv = c.adam_momentum(50, tx, ty, vx, vy, e=1e-4, wd=1e-9, k=512)')
+    except KeyboardInterrupt:
+        with open('google-model.pickle', 'wb') as f:
+            pickle.dump(c, f)
+        raise
+
+    with open('google-model.pickle', 'wb') as f:
+        pickle.dump(c, f)
+    
+    y = np.load(dataset_path + 'y.npy')
+    ty, vy = y[:n], y[n:]
+    
+    print('trainig testL: ')
+    c.test(tx[:2048].reshape((-1, 64, 1, 28, 28)), ty[:2048].reshape((-1, 64)))
+
+    print('validation testL: ')
+    c.test(vx[:2048].reshape((-1, 64, 1, 28, 28)), vy[:2048].reshape((-1, 64)))
+
+    fig, axs = plt.subplots(2)
+    axs[0].plot(range(len(j)), j)
+    axs[1].plot(range(len(jv)), jv)
+
+    plt.show()

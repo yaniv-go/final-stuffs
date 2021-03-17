@@ -76,7 +76,8 @@ class CNN:
 
         for a,b in zip(x, y):
             a = cp.array(a, dtype='float32') / 255
-            mean = cp.mean(a, axis=(2, 3), dtype='float64').reshape((-1, 3, 1, 1))
+            pzz = a.shape[1]
+            mean = cp.mean(a, axis=(2, 3), dtype='float64').reshape((-1, pzz, 1, 1))
             a = (a - mean).astype('float32')
             o = self.forward(a)
             for l in self.nn:
@@ -345,8 +346,9 @@ class CNN:
                 p = np.random.randint(xb.shape[0] - 1)
 
                 xt, yt = cp.array(xb[p], dtype='float32') / 255, cp.array(yb[p], dtype='float32')
+                pzz = xt.shape[1]
                 mean = cp.mean(xt, axis=(2, 3), dtype='float64')
-                xt = (xt - mean.reshape(-1, 3, 1, 1)).astype('float32')
+                xt = (xt - mean.reshape(-1, pzz, 1, 1)).astype('float32')
 
                 o = self.forward(xt)
                 cost = self.cost(o, yt)
@@ -387,7 +389,8 @@ class CNN:
             for a, b in zip(xv, yv):
                 a = cp.array(a, dtype='float32') / 255
                 mean = cp.mean(a, axis=(2, 3), dtype='float64')
-                a -= mean.reshape((-1, 3, 1, 1))
+                pzz = a.shape[1]
+                a -= mean.reshape((-1, pzz, 1, 1))
                 a = a.astype('float32')
                 b = cp.array(b)
                 jv.append(self.cost(self.forward(a), b))

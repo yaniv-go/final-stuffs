@@ -96,7 +96,17 @@ def resize_images(dataset_path, size):
             image = image.resize((size, size))
             image.save(resized_breed_path + photo)
 
-def tranpose_images(dataset_path):
+def transpose_images_spoon(path):
+    transposed_path = path + 'images-flipped/'
+    images_path = path + 'images/'
+
+    os.mkdir(transposed_path)
+    for fn in os.listdir(images_path):
+        pic = Image.open(images_path + fn)
+        pic = pic.transpose(Image.FLIP_LEFT_RIGHT)
+        pic.save(transposed_path + fn)
+
+def tranpose_images_dogs(dataset_path):
     images_path = dataset_path + 'images-224\\'
     images_resized_path = dataset_path + 'images-224-flipped\\'
 
@@ -177,6 +187,20 @@ def add_noise(dataset_path, noise):
             image = Image.fromarray(image, mode='RGB')
             image.save(resized_breed_path + photo)
 
+def add_noise_spoon(path):
+    images_path = path + 'images/'
+    noisy_path = path + 'images-nosiy/'
+
+    os.mkdir(noisy_path)
+
+    for fn in os.listdir(images_path):
+        pic = Image.open(images_path + fn)
+        pic = np.array(pic)
+        pic = noisy('s&p', pic)
+        pic = Image.fromarray(pic, mode='RGB')
+        pic.save(noisy_path + fn)
+
+
 def remove_part_of_image(dataset_path):
     images_path = dataset_path + 'images-224-flipped\\'
     images_resized_path = dataset_path + 'images-224-flipped-removed\\'
@@ -208,12 +232,48 @@ def remove_part_of_image(dataset_path):
             
             image.save(resized_breed_path + photo)
 
-dataset_path = '/home/yaniv/knifey-spoony-dataset/images/'
+def remove_part_of_image_spoon(path):
+    images_path = path + 'images/'
+    removed_path = path + 'images-removed/'
+
+    os.mkdir(removed_path)
+
+    for fn in os.listdir(images_path):
+        pic = Image.open(images_path + fn)
+        pic = np.array(pic)
+        x = np.random.randint(29, 200)
+        y = np.random.randint(29, 200)
+        if x > 30:
+            px = x - 30
+        else:
+            px = x + 30
+        if y > 30:
+            py = y - 30
+        else:
+            py = y + 30
+
+        
+        pic[px:x, py:y] = (0, 0, 0)
+        
+        pic = Image.fromarray(pic)
+        
+        pic.save(removed_path + fn)
+
+dataset_path = '/home/yaniv/knifey-spoony-dataset/'
 
 all_arrs = ('-flipped', '-flipped-removed', '-removed', '-s&p-noise',
             '-s&p-noise-flipped')
 
-tx, ty, vx, vy = get_image_arrays_spoony(dataset_path)
+tx, ty, vx, vy = get_image_arrays_spoony(dataset_path + 'images/')
+ftx, fty, fvx, fvy = get_image_arrays_spoony(dataset_path + 'images-flipped/')
+ntx, nty, nvx, nvy = get_image_arrays_spoony(dataset_path + 'images-nosiy/')
+rtx, rty, rvx, rvy = get_image_arrays_spoony(dataset_path + 'images-removed/')
 
-print(tx.shape)
+vx = np.append(vx, fvx, axis=0)
+vx = np.append(vx, nvx, axis=0)
+vx = np.append(vx, rvx, axis=0)
+vx = np.append(vx, vx[-56:], axis=0)
+
 print(vx.shape)
+
+np.save(dataset_path + 'vx', vx)

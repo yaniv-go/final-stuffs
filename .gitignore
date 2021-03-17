@@ -5,3 +5,4 @@ ongpu/cnn/chi.jpg
 ongpu/cnn/chi.txt
 ongpu/cnn/table.txt
 ongpu/cnn/tiger.txt
+*.pickle
