@@ -317,20 +317,20 @@ if __name__ == '__main__' and dogs==0:
     n = int(0.9 * x.shape[0])
     tx, ty, vx, vy = x[:n], y[:n], x[n:], y[n:]
 
-    tx = tx.reshape((-1, 512, 1, 28, 28))
-    vx = vx.reshape((-1, 512, 1, 28, 28))
+    tx = tx.reshape((-1, 1024, 1, 28, 28))
+    vx = vx.reshape((-1, 1024, 1, 28, 28))
     
     ty = get_one_hot(ty, 9)
     vy = get_one_hot(vy, 9)
 
-    ty = ty.reshape((-1, 512, 9))
-    vy = vy.reshape((-1, 512, 9))
+    ty = ty.reshape((-1, 1024, 9))
+    vy = vy.reshape((-1, 1024, 9))
 
     print(vx.shape)
     print(vy.shape)
 
     try:
-        cProfile.run('j, jv = c.adam_momentum(50, tx, ty, vx, vy, e=1e-4, wd=1e-9, k=512)')
+        cProfile.run('j, jv = c.adam_momentum(60, tx, ty, vx, vy, e=1e-4, wd=1e-9, k=1024)')
     except KeyboardInterrupt:
         with open('google-model.pickle', 'wb') as f:
             pickle.dump(c, f)
